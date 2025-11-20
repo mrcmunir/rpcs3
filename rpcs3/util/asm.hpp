@@ -255,14 +255,13 @@ namespace utils
 #if defined(ARCH_X64) && !defined(_MSC_VER)
     // x64: use lock prefix for atomic OR operation (memory barrier)
     __asm__ volatile("lock orl $0, 0(%0)" :: "r" (ptr));
-#elif defined(ARCH_ARM64)
-    // ARM64: use compiler builtin for atomic OR - automatically chooses optimal implementation
-    // - On ARMv8.1+ with LSE: generates single 'ldset' instruction
-    // - On ARMv8.0 without LSE: generates optimized LL/SC sequence
-    // - Portable across all ARM64 variants and provides best performance
-    __atomic_fetch_or(static_cast<u32*>(ptr), 0, __ATOMIC_ACQ_REL);
+#elif defined(ARCH_ARM64) && defined(__ARM_FEATURE_ATOMICS) && __ARM_FEATURE_ATOMICS == 1 && !defined(FORCE_NO_LSE)
+    //Only armv8.1+ LSE 
+    u32 value = 0;
+    u32* u32_ptr = static_cast<u32*>(ptr);
+    __asm__ volatile("ldset %w0, %w0, %1" : "+r"(value), "=Q"(*u32_ptr) : "r"(value));
 #else
-    // Generic fallback: use atomic operation for memory ordering
+    // Fallback ARMv8.0 without LSE or Android
     *static_cast<atomic_t<u32>*>(ptr) += 0;
 #endif
 	}
