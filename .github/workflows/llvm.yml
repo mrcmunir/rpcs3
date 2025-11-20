@@ -65,7 +65,7 @@ jobs:
           if-no-files-found: error
 
       - name: Save Dependencies Cache
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/nvidia-l4t'
         uses: actions/cache/save@main
         with:
           path: ${{ env.DEPS_CACHE_DIR }}
