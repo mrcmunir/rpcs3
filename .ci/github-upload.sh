@@ -1,20 +1,40 @@
 #!/bin/sh -ex
 
 ARTIFACT_DIR="$BUILD_ARTIFACTSTAGINGDIRECTORY"
+
+# Función para escapar texto para JSON
+escape_json() {
+    local text="$1"
+    # Escapar comillas, backslashes, newlines, etc.
+    text="${text//\\/\\\\}"
+    text="${text//\"/\\\"}"
+    text="${text//$'\n'/\\n}"
+    text="${text//$'\r'/\\r}"
+    text="${text//$'\t'/\\t}"
+    echo "$text"
+}
+
 generate_post_data()
 {
     body=$(cat GitHubReleaseMessage.txt)
+    body_escaped=$(escape_json "$body")
+    
     cat <<EOF
-    {
+{
     "tag_name": "build-${BUILD_SOURCEVERSION}",
     "target_commitish": "${UPLOAD_COMMIT_HASH}",
     "name": "${AVVER}",
-    "body": "$body",
+    "body": "$body_escaped",
     "draft": false,
     "prerelease": false
-    }
+}
 EOF
 }
+
+# Debug: mostrar qué se va a enviar
+echo "=== JSON que se enviará a GitHub ==="
+generate_post_data
+echo "=== Fin del JSON ==="
 
 curl -fsS \
     -H "Authorization: token ${RPCS3_TOKEN}" \
