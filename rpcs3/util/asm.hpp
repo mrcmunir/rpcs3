@@ -253,13 +253,17 @@ namespace utils
 	inline void trigger_write_page_fault(void* ptr)
 	{
 #if defined(ARCH_X64) && !defined(_MSC_VER)
-		__asm__ volatile("lock orl $0, 0(%0)" :: "r" (ptr));
+    // x64: use lock prefix for atomic OR operation (memory barrier)
+    __asm__ volatile("lock orl $0, 0(%0)" :: "r" (ptr));
 #elif defined(ARCH_ARM64)
-		u32 value = 0;
-		u32* u32_ptr = static_cast<u32*>(ptr);
-		__asm__ volatile("ldset %w0, %w0, %1" : "+r"(value), "=Q"(*u32_ptr) : "r"(value));
+    // ARM64: use compiler builtin for atomic OR - automatically chooses optimal implementation
+    // - On ARMv8.1+ with LSE: generates single 'ldset' instruction
+    // - On ARMv8.0 without LSE: generates optimized LL/SC sequence
+    // - Portable across all ARM64 variants and provides best performance
+    __atomic_fetch_or(static_cast<u32*>(ptr), 0, __ATOMIC_ACQ_REL);
 #else
-		*static_cast<atomic_t<u32> *>(ptr) += 0;
+    // Generic fallback: use atomic operation for memory ordering
+    *static_cast<atomic_t<u32>*>(ptr) += 0;
 #endif
 	}
 
