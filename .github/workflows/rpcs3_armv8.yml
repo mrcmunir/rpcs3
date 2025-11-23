@@ -1,4 +1,4 @@
-name: Build RPCS3 Qt UI (Legacy)
+name: Build RPCS3 Qt UI armv8.0 test
 
 defaults:
   run:
@@ -87,19 +87,18 @@ jobs:
         run: |
           ${{ matrix.build_sh }}
 
-          RX_VERSION=`cat .rx.version | awk -F'-' '{print $1}'`
-          RX_SHA=`cat .rx.version | awk -F'-' '{print $5}'`
+          RX_VERSION=$(git describe --tags --always || echo "0.0.0")
+          RX_SHA=$(git rev-parse --short HEAD)
 
           echo "RX_VERSION=$RX_VERSION" >> "${{ github.env }}"
           echo "RX_SHA=$RX_SHA" >> "${{ github.env }}"
 
-          # AppImage renombrado estilo RCPSX-QT-UI
           mv RPCS3-Qt-UI.AppImage RPCS3-Qt-UI-Linux-${{ matrix.arch }}.AppImage
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: RPCS3 Qt UI (Legacy) Linux (${{ matrix.arch }})
+          name: RPCS3 Qt UI  Linux (${{ matrix.arch }})
           path: RPCS3-Qt-UI-Linux-${{ matrix.arch }}.AppImage
           compression-level: 0
 
