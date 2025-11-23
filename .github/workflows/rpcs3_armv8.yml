@@ -72,6 +72,7 @@ jobs:
         env:
           RPCS3_TOKEN: ${{ secrets.RPCS3_TOKEN }}
           UPLOAD_REPO_FULL_NAME: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
           BUILD_ARTIFACTSTAGINGDIRECTORY: ${{ github.workspace }}/artifacts/
         run: |
           COMM_TAG=$(awk '/version{.*}/ { printf("%d.%d.%d", $5, $6, $7) }' ./rpcs3/rpcs3_version.cpp)
