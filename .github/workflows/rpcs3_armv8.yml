@@ -71,14 +71,14 @@ jobs:
           github.ref == 'refs/heads/nvidia-l4t'
         env:
           RPCS3_TOKEN: ${{ secrets.RPCS3_TOKEN }}
+          UPLOAD_REPO_FULL_NAME: ${{ github.repository }}
+          BUILD_ARTIFACTSTAGINGDIRECTORY: ${{ github.workspace }}/artifacts/
         run: |
           COMM_TAG=$(awk '/version{.*}/ { printf("%d.%d.%d", $5, $6, $7) }' ./rpcs3/rpcs3_version.cpp)
           COMM_COUNT=$(git rev-list --count HEAD)
-          COMM_HASH=$(git rev-parse --short=8 HEAD)
-          export AVVER="${COMM_TAG}-${COMM_COUNT}"
-          export BUILD_SOURCEVERSION="$COMM_HASH"
-          export UPLOAD_COMMIT_HASH="$COMM_HASH"
-          .ci/github-upload.sh    
+          AVVER="${COMM_TAG}-${COMM_COUNT}"
+          export AVVER
+          .ci/github-upload.sh
 
       - name: Save build Ccache
         if: github.ref == 'refs/heads/nvidia-l4t'
