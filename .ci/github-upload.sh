@@ -7,8 +7,9 @@ create_release_payload() {
 cat <<EOF
 {
   "tag_name": "build-${AVVER}",
-  "name": "RPCS3 Linux - ${AVVER}",
-  "body": "Build automática de RPCS3 para Linux.",
+  "target_commitish": "${GITHUB_SHA}",
+  "name": "RPCS3 Linux armv8.0 test- ${AVVER}",
+  "body": "Build auto for armv8.0 linux.",
   "draft": false,
   "prerelease": false
 }
