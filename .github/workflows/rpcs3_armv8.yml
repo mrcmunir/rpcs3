@@ -85,16 +85,26 @@ jobs:
 
       - name: Build RPCS3
         run: |
-          ${{ matrix.build_sh }}
+          echo "Detected runner architecture: $RUNNER_ARCH"
+          if [ "$RUNNER_ARCH" = "X64" ]; then
+            echo "Building for x86-64"
+            .ci/build-linux.sh
+          elif [ "$RUNNER_ARCH" = "ARM64" ]; then
+            echo "Building for ARM64"
+            .ci/build-linux-aarch64.sh
+          else
+            echo "Unknown architecture: $RUNNER_ARCH"
+          exit 1
+          fi
 
           RX_VERSION=$(git describe --tags --always || echo "0.0.0")
           RX_SHA=$(git rev-parse --short HEAD)
 
           echo "RX_VERSION=$RX_VERSION" >> "${{ github.env }}"
           echo "RX_SHA=$RX_SHA" >> "${{ github.env }}"
-
+          if [ -f RPCS3-Qt-UI.AppImage ]; then
           mv RPCS3-Qt-UI.AppImage RPCS3-Qt-UI-Linux-${{ matrix.arch }}.AppImage
-
+          fi
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
