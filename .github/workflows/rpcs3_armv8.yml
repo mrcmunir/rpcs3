@@ -30,6 +30,7 @@ jobs:
       DEPLOY_APPIMAGE: true
       APPDIR: "/rpcs3/build/appdir"
       ARTDIR: "/root/artifacts"
+      RELEASE_MESSAGE: "${ARTDIR}/GitHubReleaseMessage.txt"
       RUN_UNIT_TESTS: ${{ github.event_name == 'pull_request' && 'ON' || 'OFF' }}
     steps:
       - name: Checkout repository
