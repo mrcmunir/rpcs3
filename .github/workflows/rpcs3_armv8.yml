@@ -59,7 +59,10 @@ jobs:
             libunwind-dev libglfw3-dev libvulkan-dev libsox-dev \
             libasound2-dev nasm g++-14 unzip ninja-build  libx11-dev  libxext-dev \
            libxrandr-dev libxcursor-dev libxi-dev libxinerama-dev libxkbcommon-dev \
-           libxrender-dev libxfixes-dev
+           libxrender-dev libxfixes-dev libpulse-dev libaudio-dev libfribidi-dev libjack-dev libsndio-dev \
+           libxss-dev libxtst-dev libdrm-dev libgbm-dev libgl1-mesa-dev \
+          libgles2-mesa-dev libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev \
+          libudev-dev libpipewire-0.3-dev libwayland-dev libdecor-0-dev liburing-dev
 
       - name: Install LLVM 20
         run: |
