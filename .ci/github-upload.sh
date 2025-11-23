@@ -1,47 +1,43 @@
-#!/bin/sh -ex
+#!/bin/bash -ex
 
-# Directorio donde están los artefactos (AppImage, etc.)
 ARTIFACT_DIR="$BUILD_ARTIFACTSTAGINGDIRECTORY"
 
-# Crear la release en GitHub
-generate_post_data() {
-    cat <<EOF
+# ===== 1. Crear la release =====
+create_release_payload() {
+cat <<EOF
 {
-  "tag_name": "build-${BUILD_SOURCEVERSION}",
-  "target_commitish": "${UPLOAD_COMMIT_HASH}",
-  "name": "${AVVER}",
+  "tag_name": "build-${AVVER}",
+  "name": "RPCS3 Linux - ${AVVER}",
+  "body": "Build automática de RPCS3 para Linux.",
   "draft": false,
   "prerelease": false
 }
 EOF
 }
 
-# Crear la release y guardar la respuesta
+# Crear release
 curl -fsS \
     -H "Authorization: token ${RPCS3_TOKEN}" \
-    -H "Accept: application/vnd.github.v3+json" \
-    --data "$(generate_post_data)" \
-    "https://api.github.com/repos/$UPLOAD_REPO_FULL_NAME/releases" \
+    -H "Accept: application/vnd.github+json" \
+    --data "$(create_release_payload)" \
+    "https://api.github.com/repos/${UPLOAD_REPO_FULL_NAME}/releases" \
     > release.json
 
-cat release.json
+# Sacar el ID de la release creada
+id=$(grep '"id"' release.json | head -n 1 | cut -d ':' -f2 | tr -d ' ,')
+echo "Release ID: $id"
 
-# Extraer el ID de la release recién creada
-id=$(grep '"id"' release.json | head -n1 | awk -F: '{gsub(/[^0-9]/,"",$2); print $2}')
-echo "Release ID: ${id:?}"
-
-# Función para subir cada archivo
+# ===== 2. Subir los AppImage =====
 upload_file() {
     curl -fsS \
-        -H "Authorization: token ${RPCS3_TOKEN}" \
-        -H "Accept: application/vnd.github.v3+json" \
-        -H "Content-Type: application/octet-stream" \
-        --data-binary @"$2"/"$3" \
-        "https://uploads.github.com/repos/$UPLOAD_REPO_FULL_NAME/releases/$1/assets?name=$3"
+      -H "Authorization: token ${RPCS3_TOKEN}" \
+      -H "Accept: application/vnd.github+json" \
+      -H "Content-Type: application/octet-stream" \
+      --data-binary @"$1" \
+      "https://uploads.github.com/repos/${UPLOAD_REPO_FULL_NAME}/releases/${id}/assets?name=$(basename "$1")"
 }
 
-# Subir todos los artefactos del directorio
-for file in "$ARTIFACT_DIR"/*; do
-    name=$(basename "$file")
-    upload_file "$id" "$ARTIFACT_DIR" "$name"
+for f in "$ARTIFACT_DIR"/*.AppImage; do
+    echo "Subiendo: $f"
+    upload_file "$f"
 done
