@@ -1,43 +1,42 @@
 #!/bin/sh -ex
 
-cd build || exit 1
+ARTIFACT_DIR="$BUILD_ARTIFACTSTAGINGDIRECTORY"
+generate_post_data()
+{
+    body=$(cat GitHubReleaseMessage.txt)
+    cat <<EOF
+    {
+    "tag_name": "build-${BUILD_SOURCEVERSION}",
+    "target_commitish": "${UPLOAD_COMMIT_HASH}",
+    "name": "${AVVER}",
+    "body": "$body",
+    "draft": false,
+    "prerelease": false
+    }
+EOF
+}
 
-if [ "$DEPLOY_APPIMAGE" = "true" ]; then
-    DESTDIR=AppDir ninja install
+curl -fsS \
+    -H "Authorization: token ${RPCS3_TOKEN}" \
+    -H "Accept: application/vnd.github.v3+json" \
+    --data "$(generate_post_data)" "https://api.github.com/repos/$UPLOAD_REPO_FULL_NAME/releases" >> release.json
 
-    curl -fsSLo /usr/bin/linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-    chmod +x /usr/bin/linuxdeploy
-    curl -fsSLo /usr/bin/linuxdeploy-plugin-qt https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
-    chmod +x /usr/bin/linuxdeploy-plugin-qt
-    curl -fsSLo linuxdeploy-plugin-checkrt.sh https://github.com/linuxdeploy/linuxdeploy-plugin-checkrt/releases/download/continuous/linuxdeploy-plugin-checkrt-x86_64.sh
-    chmod +x ./linuxdeploy-plugin-checkrt.sh
+cat release.json
+id=$(grep '"id"' release.json | cut -d ':' -f2 | head -n1 | awk '{$1=$1;print}')
+id=${id%?}
+echo "${id:?}"
 
-    EXTRA_QT_PLUGINS="svg;" APPIMAGE_EXTRACT_AND_RUN=1 linuxdeploy --appdir AppDir --plugin qt
+upload_file()
+{
+    curl -fsS \
+        -H "Authorization: token ${RPCS3_TOKEN}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        -H "Content-Type: application/octet-stream" \
+        --data-binary @"$2"/"$3" \
+        "https://uploads.github.com/repos/$UPLOAD_REPO_FULL_NAME/releases/$1/assets?name=$3"
+}
 
-    # Remove libwayland-client because it has platform-dependent exports and breaks other OSes
-    rm -f ./AppDir/usr/lib/libwayland-client.so*
-
-    # Remove git directory containing local commit history file
-    rm -rf ./AppDir/usr/share/rpcs3/git
-
-    ./linuxdeploy-plugin-checkrt.sh --appdir AppDir
-
-    linuxdeploy --appimage-extract
-    ./squashfs-root/plugins/linuxdeploy-plugin-appimage/usr/bin/appimagetool AppDir -g
-
-    COMM_TAG=$(awk '/version{.*}/ { printf("%d.%d.%d", $5, $6, $7) }' ../rpcs3/rpcs3_version.cpp)
-    COMM_COUNT="$(git rev-list --count HEAD)"
-    COMM_HASH="$(git rev-parse --short=8 HEAD)"
-    RPCS3_APPIMAGE="rpcs3-v${COMM_TAG}-${COMM_COUNT}-${COMM_HASH}_linux64.AppImage"
-
-    mv ./RPCS3*.AppImage "$RPCS3_APPIMAGE"
-
-    # If we're building using a CI, let's copy over the AppImage artifact
-    if [ -n "$BUILD_ARTIFACTSTAGINGDIRECTORY" ]; then
-        cp "$RPCS3_APPIMAGE" "$ARTDIR"
-    fi
-
-    FILESIZE=$(stat -c %s ./rpcs3*.AppImage)
-    SHA256SUM=$(sha256sum ./rpcs3*.AppImage | awk '{ print $1 }')
-    echo "${SHA256SUM};${FILESIZE}B" > "$RELEASE_MESSAGE"
-fi
+for file in "$ARTIFACT_DIR"/*; do
+    name=$(basename "$file")
+    upload_file "$id" "$ARTIFACT_DIR" "$name"
+done
