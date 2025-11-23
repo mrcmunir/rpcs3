@@ -92,7 +92,7 @@ jobs:
           mv RPCS3-Qt-UI.AppImage RPCS3-Qt-UI-Linux-${{ matrix.arch }}.AppImage
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: RPCS3 Qt UI (Legacy) Linux (${{ matrix.arch }})
           path: RPCS3-Qt-UI-Linux-${{ matrix.arch }}.AppImage
