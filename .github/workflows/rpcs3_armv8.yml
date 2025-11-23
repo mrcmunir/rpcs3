@@ -15,7 +15,7 @@ env:
   BUILD_ARTIFACTSTAGINGDIRECTORY: ${{ github.workspace }}/artifacts/
 
 jobs:
-    Linux_ARM64_Build:
+  Linux_ARM64_Build:
     name: RPCS3 Linux ARM64
     runs-on: ubuntu-24.04-arm
     strategy:
@@ -30,16 +30,16 @@ jobs:
       DEPLOY_APPIMAGE: true
       APPDIR: "/rpcs3/build/appdir"
       ARTDIR: "/root/artifacts"
-      RUN_UNIT_TESTS: github.event_name == 'pull_request' && 'ON' || 'OFF'
+      RUN_UNIT_TESTS: ${{ github.event_name == 'pull_request' && 'ON' || 'OFF' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           ref: nvidia-l4t
 
       - name: Restore build Ccache
-        uses: actions/cache/restore@main
+        uses: actions/cache/restore@v3
         id: restore-build-ccache
         with:
           path: ${{ env.CCACHE_DIR }}
@@ -52,13 +52,13 @@ jobs:
           docker run \
             -v $PWD:/rpcs3 \
             --env-file .ci/docker.env \
-            -v ${{ env.CCACHE_DIR }}:/root/.ccache  \
+            -v ${{ env.CCACHE_DIR }}:/root/.ccache \
             -v ${{ github.workspace }}/artifacts:/root/artifacts \
             ${{ matrix.docker_img }} \
             ${{ matrix.build_sh }}
 
       - name: Upload AppImage artifact
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v3
         with:
           name: RPCS3 Linux ARM64
           path: ${{ github.workspace }}/artifacts/*.AppImage
@@ -66,7 +66,7 @@ jobs:
 
       - name: Save build Ccache
         if: github.ref == 'refs/heads/nvidia-l4t'
-        uses: actions/cache/save@main
+        uses: actions/cache/save@v3
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ steps.restore-build-ccache.outputs.cache-primary-key }}
