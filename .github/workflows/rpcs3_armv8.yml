@@ -58,7 +58,7 @@ jobs:
             ${{ matrix.build_sh }}
 
       - name: Upload AppImage artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: RPCS3 Linux ARM64
           path: ${{ github.workspace }}/artifacts/*.AppImage
