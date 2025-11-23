@@ -2,41 +2,48 @@
 
 cd rpcs3 || exit 1
 
+shellcheck .ci/*.sh
+
 git config --global --add safe.directory '*'
 
-# Pull all the submodules except llvm and opencv
+# Pull all the submodules except some
 # shellcheck disable=SC2046
-git submodule -q update --init $(awk '/path/ && !/llvm/ && !/opencv/ { print $3 }' .gitmodules)
+git submodule -q update --init $(awk '/path/ && !/llvm/ && !/opencv/ && !/libsdl-org/ && !/curl/ && !/zlib/ { print $3 }' .gitmodules)
+
+mkdir build && cd build || exit 1
 
 if [ "$COMPILER" = "gcc" ]; then
-    export CC=gcc-14
-    export CXX=g++-14
+    # These are set in the dockerfile
+    export CC="${GCC_BINARY}"
+    export CXX="${GXX_BINARY}"
+    export LINKER=gold
 else
-    export CC=clang
-    export CXX=clang++
-    export CFLAGS="$CFLAGS -fuse-ld=lld"
+    export CC="${CLANG_BINARY}"
+    export CXX="${CLANGXX_BINARY}"
+    export LINKER="${LLD_BINARY}"
 fi
 
-cmake -B build                                         \
+export LINKER_FLAG="-fuse-ld=${LINKER}"
+
+cmake ..                                               \
     -DCMAKE_INSTALL_PREFIX=/usr                        \
-    -DCMAKE_C_FLAGS="$CFLAGS"                          \
-    -DCMAKE_CXX_FLAGS="$CFLAGS"                        \
     -DUSE_NATIVE_INSTRUCTIONS=OFF                      \
     -DUSE_PRECOMPILED_HEADERS=OFF                      \
+    -DCMAKE_EXE_LINKER_FLAGS="${LINKER_FLAG}"          \
+    -DCMAKE_MODULE_LINKER_FLAGS="${LINKER_FLAG}"       \
+    -DCMAKE_SHARED_LINKER_FLAGS="${LINKER_FLAG}"       \
     -DUSE_SYSTEM_CURL=ON                               \
-    -DUSE_SDL=OFF                                      \
+    -DUSE_SDL=ON                                       \
+    -DUSE_SYSTEM_SDL=ON                                \
     -DUSE_SYSTEM_FFMPEG=OFF                            \
-    -DUSE_SYSTEM_CURL=OFF                              \
-    -DUSE_SYSTEM_OPENAL=OFF                            \
+    -DUSE_SYSTEM_OPENCV=ON                             \
     -DUSE_DISCORD_RPC=ON                               \
     -DOpenGL_GL_PREFERENCE=LEGACY                      \
-    -DSTATIC_LINK_LLVM=ON                              \
-    -DBUILD_LLVM=on                                    \
     -G Ninja
 
-cmake --build build; build_status=$?;
+ninja; build_status=$?;
 
-shellcheck .ci/*.sh
+cd ..
 
 # If it compiled succesfully let's deploy.
 # Azure and Cirrus publish PRs as artifacts only.
