@@ -1,5 +1,7 @@
 #!/bin/sh -ex
 
+cd rpcs3 || exit 1
+
 git config --global --add safe.directory '*'
 
 # Pull all the submodules except llvm and opencv
