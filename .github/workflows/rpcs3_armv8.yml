@@ -1,0 +1,113 @@
+name: Build RPCS3 Qt UI armv8.0 test
+
+defaults:
+  run:
+    shell: bash
+
+on:
+  push:
+    branches:
+      - nvidia-l4t
+    paths-ignore:
+      - "**/*.md"
+  pull_request:
+    branches:
+      - nvidia-l4t
+    paths-ignore:
+      - "**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+env:
+  BUILD_REPOSITORY_NAME: ${{ github.repository }}
+  BUILD_SOURCEBRANCHNAME: ${{ github.ref_name }}
+  BUILD_SOURCEVERSION: ${{ github.sha }}
+  BUILD_ARTIFACTSTAGINGDIRECTORY: ${{ github.workspace }}/artifacts/
+
+jobs:
+  Linux_Build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            build_sh: ".ci/build-linux.sh"
+            compiler: clang
+          - os: ubuntu-24.04
+            build_sh: ".ci/build-linux.sh"
+            compiler: gcc
+          - os: ubuntu-24.04-arm
+            build_sh: ".ci/build-linux-aarch64.sh"
+            compiler: clang
+    name: RPCS3 Qt UI (Legacy) for Linux ${{ matrix.os }} ${{ matrix.compiler }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      CI_HAS_ARTIFACTS: true
+      DEPLOY_APPIMAGE: true
+      APPDIR: "./appdir"
+      ARTDIR: "./artifacts"
+      COMPILER: ${{ matrix.compiler }}
+      RX_VERSION: "Unknown"
+      RX_SHA: "Unknown"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+        with:
+          fetch-depth: 0
+
+      - name: Setup Cache
+        uses: actions/cache@main
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-ccache-${{ matrix.compiler }}-${{ runner.arch }}-${{ github.run_id }}
+          restore-keys: | 
+            ${{ runner.os }}-ccache-${{ matrix.compiler }}-${{ runner.arch }}-
+
+      - name: Setup dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y cmake build-essential libunwind-dev \
+            libvulkan-dev vulkan-validationlayers \
+            libsox-dev ninja-build libasound2-dev libglfw3-dev nasm libudev-dev \
+            libpulse-dev libopenal-dev libglew-dev zlib1g-dev libedit-dev \
+            libevdev-dev libjack-dev libsndio-dev libglvnd-dev \
+            qt6-base-dev qt6-svg-dev qt6-base-private-dev qt6-multimedia-dev \
+            clang lld gcc-14 g++-14
+
+      - name: Build
+        run: |
+          ${{ matrix.build_sh }}
+
+          RX_VERSION=`cat .rx.version | awk -F'-' '{print $1}'`
+          RX_SHA=`cat .rx.version | awk -F'-' '{print $5}'`
+
+          echo "RX_VERSION=$RX_VERSION" >> "${{ github.env }}"
+          echo "RX_SHA=$RX_SHA" >> "${{ github.env }}"
+          mv RPCS3-Qt-UI.AppImage RPCS3-Qt-UI-Linux-${{ runner.arch }}-${{ matrix.compiler }}.AppImage
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@main
+        with:
+          name: RPCS3 Qt UI for Linux (${{ runner.arch }}, ${{ matrix.compiler }})
+          path: RPCS3-Qt-UI-Linux-${{ runner.arch }}-${{ matrix.compiler }}.AppImage
+          compression-level: 0
+
+      - name: Deploy build
+        uses: softprops/action-gh-release@v2
+        if: |
+          github.event_name != 'pull_request' &&
+          github.ref == 'refs/heads/nvidia-l4t' &&
+          github.repository == 'mrcmunir/rpcs3'
+        with:
+          prerelease: false
+          make_latest: true
+          repository: mrcmunir/nvidia-l4t
+          token: ${{ secrets.RPCS3_TOKEN }}
+          tag_name: v${{ env.RX_VERSION }}-${{ env.RX_SHA }}
+          files: RPCS3-Qt-UI-Linux-${{ runner.arch }}-${{ matrix.compiler }}.AppImage
+          body: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
