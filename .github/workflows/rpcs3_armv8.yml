@@ -1,18 +1,13 @@
-name: Build RPCS3 Qt UI armv8.0 test
+name: Build RPCS3 Qt UI (Legacy)
 
 defaults:
   run:
     shell: bash
-
 on:
   push:
-    branches:
-      - nvidia-l4t
     paths-ignore:
       - "**/*.md"
   pull_request:
-    branches:
-      - nvidia-l4t
     paths-ignore:
       - "**/*.md"
   workflow_dispatch:
@@ -34,15 +29,10 @@ jobs:
       matrix:
         include:
           - os: ubuntu-24.04
-            build_sh: ".ci/build-linux.sh"
-            compiler: clang
-          - os: ubuntu-24.04
-            build_sh: ".ci/build-linux.sh"
-            compiler: gcc
+            arch: x86_64
           - os: ubuntu-24.04-arm
-            build_sh: ".ci/build-linux-aarch64.sh"
-            compiler: clang
-    name: RPCS3 Qt UI (Legacy) for Linux ${{ matrix.os }} ${{ matrix.compiler }}
+            arch: aarch64
+    name: RPCS3 Qt UI (Legacy) for Linux ${{ matrix.os }} ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     env:
       CCACHE_DIR: ${{ github.workspace }}/ccache
@@ -50,36 +40,45 @@ jobs:
       DEPLOY_APPIMAGE: true
       APPDIR: "./appdir"
       ARTDIR: "./artifacts"
-      COMPILER: ${{ matrix.compiler }}
+      COMPILER: clang
       RX_VERSION: "Unknown"
       RX_SHA: "Unknown"
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
+          ref: nvidia-l4t
+          repository: mrcmunir/rpcs3
 
-      - name: Setup Cache
-        uses: actions/cache@main
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: ${{ runner.os }}-ccache-${{ matrix.compiler }}-${{ runner.arch }}-${{ github.run_id }}
-          restore-keys: | 
-            ${{ runner.os }}-ccache-${{ matrix.compiler }}-${{ runner.arch }}-
-
-      - name: Setup dependencies
+      - name: Setup base dependencies
         run: |
           sudo apt update
-          sudo apt install -y cmake build-essential libunwind-dev \
-            libvulkan-dev vulkan-validationlayers \
-            libsox-dev ninja-build libasound2-dev libglfw3-dev nasm libudev-dev \
-            libpulse-dev libopenal-dev libglew-dev zlib1g-dev libedit-dev \
-            libevdev-dev libjack-dev libsndio-dev libglvnd-dev \
-            qt6-base-dev qt6-svg-dev qt6-base-private-dev qt6-multimedia-dev \
-            clang lld gcc-14 g++-14
+          sudo apt install -y sudo wget git pkgconf build-essential cmake \
+            libunwind-dev libglfw3-dev libvulkan-dev libsox-dev \
+            libasound2-dev nasm g++-14 unzip ninja-build
 
-      - name: Build
+      - name: Install LLVM 20
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 20
+          export CC=clang-20
+          export CXX=clang++-20
+          export LINKER=lld-20
+
+      - name: Build and install SDL3
+        run: |
+          git clone https://github.com/libsdl-org/SDL.git
+          cd SDL
+          mkdir build && cd build
+          cmake .. -DCMAKE_INSTALL_PREFIX=/usr
+          make -j$(nproc)
+          sudo make install
+          cd ../..
+
+      - name: Build RPCS3
         run: |
           ${{ matrix.build_sh }}
 
@@ -88,16 +87,18 @@ jobs:
 
           echo "RX_VERSION=$RX_VERSION" >> "${{ github.env }}"
           echo "RX_SHA=$RX_SHA" >> "${{ github.env }}"
-          mv RPCS3-Qt-UI.AppImage RPCS3-Qt-UI-Linux-${{ runner.arch }}-${{ matrix.compiler }}.AppImage
+
+          # AppImage renombrado estilo RCPSX-QT-UI
+          mv RPCS3-Qt-UI.AppImage RPCS3-Qt-UI-Linux-${{ matrix.arch }}.AppImage
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v3
         with:
-          name: RPCS3 Qt UI for Linux (${{ runner.arch }}, ${{ matrix.compiler }})
-          path: RPCS3-Qt-UI-Linux-${{ runner.arch }}-${{ matrix.compiler }}.AppImage
+          name: RPCS3 Qt UI (Legacy) Linux (${{ matrix.arch }})
+          path: RPCS3-Qt-UI-Linux-${{ matrix.arch }}.AppImage
           compression-level: 0
 
-      - name: Deploy build
+      - name: Deploy build to GitHub Release
         uses: softprops/action-gh-release@v2
         if: |
           github.event_name != 'pull_request' &&
@@ -106,8 +107,8 @@ jobs:
         with:
           prerelease: false
           make_latest: true
-          repository: mrcmunir/nvidia-l4t
+          repository: mrcmunir/rpcs3
           token: ${{ secrets.RPCS3_TOKEN }}
           tag_name: v${{ env.RX_VERSION }}-${{ env.RX_SHA }}
-          files: RPCS3-Qt-UI-Linux-${{ runner.arch }}-${{ matrix.compiler }}.AppImage
+          files: RPCS3-Qt-UI-Linux-${{ matrix.arch }}.AppImage
           body: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
