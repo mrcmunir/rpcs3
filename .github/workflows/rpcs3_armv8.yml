@@ -64,6 +64,14 @@ jobs:
           name: RPCS3 Linux ARM64
           path: ${{ github.workspace }}/artifacts/*.AppImage
           compression-level: 0
+      - name: Deploy master build to GitHub Releases
+        if: |
+          github.event_name != 'pull_request' &&
+          github.repository == 'mrcmunir/rpcs3' &&
+          github.ref == 'refs/heads/nvidia-l4t'
+        env:
+          RPCS3_TOKEN: ${{ secrets.RPCS3_TOKEN }}
+        run: .ci/github-upload.sh    
 
       - name: Save build Ccache
         if: github.ref == 'refs/heads/nvidia-l4t'
