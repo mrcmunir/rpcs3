@@ -1,128 +1,72 @@
-name: Build RPCS3 Qt UI armv8.0 test
+name: Build RPCS3 Linux ARM64 armv8.0 test
 
 defaults:
   run:
     shell: bash
+
 on:
   push:
-    paths-ignore:
-      - "**/*.md"
+    branches:
+      - nvidia-l4t
   pull_request:
-    paths-ignore:
-      - "**/*.md"
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: false
-
 env:
-  BUILD_REPOSITORY_NAME: ${{ github.repository }}
-  BUILD_SOURCEBRANCHNAME: ${{ github.ref_name }}
-  BUILD_SOURCEVERSION: ${{ github.sha }}
   BUILD_ARTIFACTSTAGINGDIRECTORY: ${{ github.workspace }}/artifacts/
 
 jobs:
-  Linux_Build:
+    Linux_ARM64_Build:
+    name: RPCS3 Linux ARM64
+    runs-on: ubuntu-24.04-arm
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-24.04
-            arch: x86_64
-          - os: ubuntu-24.04-arm
-            arch: aarch64
-    name: RPCS3 Qt UI (Legacy) for Linux ${{ matrix.os }} ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+          - docker_img: "rpcs3/rpcs3-ci-jammy-aarch64:1.7"
+            build_sh: "/rpcs3/.ci/build-linux-aarch64.sh"
+            compiler: clang
     env:
       CCACHE_DIR: ${{ github.workspace }}/ccache
-      CI_HAS_ARTIFACTS: true
       DEPLOY_APPIMAGE: true
-      APPDIR: "./appdir"
-      ARTDIR: "./artifacts"
-      COMPILER: clang
-      RX_VERSION: "Unknown"
-      RX_SHA: "Unknown"
-
+      APPDIR: "/rpcs3/build/appdir"
+      ARTDIR: "/root/artifacts"
+      RUN_UNIT_TESTS: github.event_name == 'pull_request' && 'ON' || 'OFF'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@main
         with:
           fetch-depth: 0
           ref: nvidia-l4t
-          repository: mrcmunir/rpcs3
 
-      - name: Setup base dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y sudo wget git pkgconf build-essential cmake \
-            libunwind-dev libglfw3-dev libvulkan-dev libsox-dev \
-            libasound2-dev nasm g++-14 unzip ninja-build  libx11-dev  libxext-dev \
-           libxrandr-dev libxcursor-dev libxi-dev libxinerama-dev libxkbcommon-dev \
-           libxrender-dev libxfixes-dev libpulse-dev libaudio-dev libfribidi-dev libjack-dev libsndio-dev \
-           libxss-dev libxtst-dev libdrm-dev libgbm-dev libgl1-mesa-dev \
-          libgles2-mesa-dev libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev \
-          libudev-dev libpipewire-0.3-dev libwayland-dev libdecor-0-dev liburing-dev libglew-dev
-
-      - name: Install LLVM 20
-        run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 20
-          export CC=clang-20
-          export CXX=clang++-20
-          export LINKER=lld-20
-
-      - name: Build and install SDL3
-        run: |
-          git clone https://github.com/libsdl-org/SDL.git
-          cd SDL
-          mkdir build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=/usr
-          make -j$(nproc)
-          sudo make install
-          cd ../..
-
-      - name: Build RPCS3
-        run: |
-          echo "Detected runner architecture: $RUNNER_ARCH"
-          if [ "$RUNNER_ARCH" = "X64" ]; then
-            echo "Building for x86-64"
-            .ci/build-linux.sh
-          elif [ "$RUNNER_ARCH" = "ARM64" ]; then
-            echo "Building for ARM64"
-            .ci/build-linux-aarch64.sh
-          else
-            echo "Unknown architecture: $RUNNER_ARCH"
-          exit 1
-          fi
-
-          RX_VERSION=$(git describe --tags --always || echo "0.0.0")
-          RX_SHA=$(git rev-parse --short HEAD)
-
-          echo "RX_VERSION=$RX_VERSION" >> "${{ github.env }}"
-          echo "RX_SHA=$RX_SHA" >> "${{ github.env }}"
-          if [ -f RPCS3-Qt-UI.AppImage ]; then
-          mv RPCS3-Qt-UI.AppImage RPCS3-Qt-UI-Linux-${{ matrix.arch }}.AppImage
-          fi
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - name: Restore build Ccache
+        uses: actions/cache/restore@main
+        id: restore-build-ccache
         with:
-          name: RPCS3 Qt UI  Linux (${{ matrix.arch }})
-          path: RPCS3-Qt-UI-Linux-${{ matrix.arch }}.AppImage
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-ccache-${{ matrix.compiler }}-${{ runner.arch }}-${{ github.run_id }}
+          restore-keys: ${{ runner.os }}-ccache-${{ matrix.compiler }}-${{ runner.arch }}-
+
+      - name: Docker setup and build
+        run: |
+          docker pull --quiet ${{ matrix.docker_img }}
+          docker run \
+            -v $PWD:/rpcs3 \
+            --env-file .ci/docker.env \
+            -v ${{ env.CCACHE_DIR }}:/root/.ccache  \
+            -v ${{ github.workspace }}/artifacts:/root/artifacts \
+            ${{ matrix.docker_img }} \
+            ${{ matrix.build_sh }}
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: RPCS3 Linux ARM64
+          path: ${{ github.workspace }}/artifacts/*.AppImage
           compression-level: 0
 
-      - name: Deploy build to GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: |
-          github.event_name != 'pull_request' &&
-          github.ref == 'refs/heads/nvidia-l4t' &&
-          github.repository == 'mrcmunir/rpcs3'
+      - name: Save build Ccache
+        if: github.ref == 'refs/heads/nvidia-l4t'
+        uses: actions/cache/save@main
         with:
-          prerelease: false
-          make_latest: true
-          repository: mrcmunir/rpcs3
-          token: ${{ secrets.RPCS3_TOKEN }}
-          tag_name: v${{ env.RX_VERSION }}-${{ env.RX_SHA }}
-          files: RPCS3-Qt-UI-Linux-${{ matrix.arch }}.AppImage
-          body: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ steps.restore-build-ccache.outputs.cache-primary-key }}
