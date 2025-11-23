@@ -57,7 +57,9 @@ jobs:
           sudo apt update
           sudo apt install -y sudo wget git pkgconf build-essential cmake \
             libunwind-dev libglfw3-dev libvulkan-dev libsox-dev \
-            libasound2-dev nasm g++-14 unzip ninja-build
+            libasound2-dev nasm g++-14 unzip ninja-build  libx11-dev  libxext-dev \
+           libxrandr-dev libxcursor-dev libxi-dev libxinerama-dev libxkbcommon-dev \
+           libxrender-dev libxfixes-dev
 
       - name: Install LLVM 20
         run: |
