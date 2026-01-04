@@ -9,11 +9,7 @@
 
 namespace rsx::assembler::FP
 {
-	static constexpr u32 register_file_length = 48 * 8; // 24 F32 or 48 F16 registers
-	static constexpr char content_unknown = 0;
-	static constexpr char content_float32 = 'R';
-	static constexpr char content_float16 = 'H';
-	static constexpr char content_dual    = 'D';
+	using namespace constants;
 
 	bool is_delay_slot(const Instruction& instruction)
 	{
@@ -60,7 +56,7 @@ namespace rsx::assembler::FP
 		return true;
 	}
 
-	std::vector<RegisterRef> compile_register_file(const std::array<char, 48 * 8>& file)
+	std::vector<RegisterRef> compile_register_file(const register_file_t& file)
 	{
 		std::vector<RegisterRef> results;
 
@@ -130,8 +126,9 @@ namespace rsx::assembler::FP
 	}
 
 	// Decay instructions into register references
-	void annotate_instructions(BasicBlock* block, const RSXFragmentProgram& prog, bool skip_delay_slots)
+	bool annotate_instructions(BasicBlock* block, const RSXFragmentProgram& prog, bool skip_delay_slots)
 	{
+		bool result = true;
 		for (auto& instruction : block->instructions)
 		{
 			if (skip_delay_slots && is_delay_slot(instruction))
@@ -139,7 +136,15 @@ namespace rsx::assembler::FP
 				continue;
 			}
 
-			const u32 operand_count = get_operand_count(static_cast<FP_opcode>(instruction.opcode));
+			const auto opcode = static_cast<FP_opcode>(instruction.opcode);
+			if (!is_instruction_valid(opcode))
+			{
+				rsx_log.error("[CFG] Annotation: Unexpected instruction '%s'", get_opcode_name(opcode));
+				result = false;
+				continue;
+			}
+
+			const u32 operand_count = get_operand_count(opcode);
 			for (u32 i = 0; i < operand_count; i++)
 			{
 				RegisterRef reg = get_src_register(prog, &instruction, i);
@@ -149,25 +154,39 @@ namespace rsx::assembler::FP
 					continue;
 				}
 
+				if (reg.reg.id >= 48)
+				{
+					rsx_log.error("[CFG] Annotation: Instruction references invalid register %s", reg.reg.to_string());
+					result = false;
+				}
+
 				instruction.srcs.push_back(std::move(reg));
 			}
 
 			RegisterRef dst = get_dst_register(&instruction);
 			if (dst)
 			{
+				if (dst.reg.id >= 48)
+				{
+					rsx_log.error("[CFG] Annotation: Instruction references invalid register %s", dst.reg.to_string());
+					result = false;
+				}
+
 				instruction.dsts.push_back(std::move(dst));
 			}
 		}
+
+		return result;
 	}
 
 	// Annotate each block with input and output lanes (read and clobber list)
 	void annotate_block_io(BasicBlock* block)
 	{
-		alignas(16) std::array<char, register_file_length> output_register_file;
-		alignas(16) std::array<char, register_file_length> input_register_file;      // We'll eventually replace with a bitfield mask, but for ease of debugging, we use char for now
+		alignas(16) register_file_t output_register_file;
+		alignas(16) register_file_t input_register_file;      // We'll eventually replace with a bitfield mask, but for ease of debugging, we use char for now
 
-		std::memset(output_register_file.data(), content_unknown, register_file_length);
-		std::memset(input_register_file.data(), content_unknown, register_file_length);
+		std::memset(output_register_file.data(), content_unknown, register_file_max_len);
+		std::memset(input_register_file.data(), content_unknown, register_file_max_len);
 
 		for (const auto& instruction : block->instructions)
 		{
@@ -219,12 +238,19 @@ namespace rsx::assembler::FP
 		block->input_list = compile_register_file(input_register_file);
 	}
 
-	void RegisterAnnotationPass::run(FlowGraph& graph)
+	bool RegisterAnnotationPass::run(FlowGraph& graph)
 	{
+		bool result = true;
 		for (auto& block : graph.blocks)
 		{
-			annotate_instructions(&block, m_prog, m_config.skip_delay_slots);
+			if (!annotate_instructions(&block, m_prog, m_config.skip_delay_slots))
+			{
+				result = false;
+			}
+
 			annotate_block_io(&block);
 		}
+
+		return result;
 	}
 }

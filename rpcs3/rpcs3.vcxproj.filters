@@ -864,6 +864,12 @@
     <ClCompile Include="QTGeneratedFiles\Release\moc_downloader.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
+    <ClCompile Include="QTGeneratedFiles\Debug\moc_clans_settings_dialog.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="QTGeneratedFiles\Release\moc_clans_settings_dialog.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
     <ClCompile Include="QTGeneratedFiles\Debug\moc_rpcn_settings_dialog.cpp">
       <Filter>Generated Files\Debug</Filter>
     </ClCompile>
@@ -1236,6 +1242,18 @@
     <ClCompile Include="gamemode_control.cpp">
       <Filter>rpcs3</Filter>
     </ClCompile>
+    <ClCompile Include="rpcs3qt\clans_settings_dialog.cpp">
+      <Filter>Gui\rpcn</Filter>
+    </ClCompile>
+    <ClCompile Include="Input\camera_video_sink.cpp">
+      <Filter>Io\camera</Filter>
+    </ClCompile>
+    <ClCompile Include="Input\sdl_camera_handler.cpp">
+      <Filter>Io\camera</Filter>
+    </ClCompile>
+    <ClCompile Include="Input\sdl_camera_video_sink.cpp">
+      <Filter>Io\camera</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Input\ds4_pad_handler.h">
@@ -1465,6 +1483,15 @@
     </ClInclude>
     <ClInclude Include="rpcs3qt\custom_tree_widget.h">
       <Filter>Gui\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="Input\camera_video_sink.h">
+      <Filter>Io\camera</Filter>
+    </ClInclude>
+    <ClInclude Include="Input\sdl_camera_handler.h">
+      <Filter>Io\camera</Filter>
+    </ClInclude>
+    <ClInclude Include="Input\sdl_camera_video_sink.h">
+      <Filter>Io\camera</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1697,6 +1724,9 @@
       <Filter>Gui\patch manager</Filter>
     </CustomBuild>
     <CustomBuild Include="rpcs3qt\rpcn_settings_dialog.h">
+      <Filter>Gui\rpcn</Filter>
+    </CustomBuild>
+    <CustomBuild Include="rpcs3qt\clans_settings_dialog.h">
       <Filter>Gui\rpcn</Filter>
     </CustomBuild>
     <CustomBuild Include="rpcs3qt\sendmessage_dialog_frame.h">

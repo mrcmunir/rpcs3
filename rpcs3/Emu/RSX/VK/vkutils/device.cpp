@@ -102,7 +102,7 @@ namespace vk
 		multidraw_support.max_batch_size = 65536;
 
 		optional_features_support.barycentric_coords  = !!shader_barycentric_info.fragmentShaderBarycentric;
-		optional_features_support.framebuffer_loops   = !!fbo_loops_info.attachmentFeedbackLoopLayout;
+		optional_features_support.framebuffer_loops   = !!fbo_loops_info.attachmentFeedbackLoopLayout && get_driver_vendor() != driver_vendor::AMD;
 		optional_features_support.extended_device_fault = !!device_fault_info.deviceFault;
 
 		features = features2.features;
@@ -123,6 +123,9 @@ namespace vk
 		optional_features_support.external_memory_host     = device_extensions.is_supported(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
 		optional_features_support.synchronization_2        = device_extensions.is_supported(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
 		optional_features_support.unrestricted_depth_range = device_extensions.is_supported(VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME);
+#ifdef __APPLE__
+		optional_features_support.portability              = device_extensions.is_supported(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+#endif
 
 		optional_features_support.debug_utils              = instance_extensions.is_supported(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 		optional_features_support.surface_capabilities_2   = instance_extensions.is_supported(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
@@ -560,7 +563,10 @@ namespace vk
 		}
 		
 #ifdef __APPLE__
-		requested_extensions.push_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+		if (pgpu->optional_features_support.portability)
+		{
+			requested_extensions.push_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+		}
 #endif
 
 		enabled_features.robustBufferAccess = VK_TRUE;

@@ -973,9 +973,9 @@ QString emu_settings::GetLocalizedSetting(const QString& original, emu_settings_
 	case emu_settings_type::SPUBlockSize:
 		switch (static_cast<spu_block_size_type>(index))
 		{
-		case spu_block_size_type::safe: return tr("Safe", "SPU Analyzer Block Size");
-		case spu_block_size_type::mega: return tr("Mega", "SPU Analyzer Block Size");
-		case spu_block_size_type::giga: return tr("Giga", "SPU Analyzer Block Size");
+		case spu_block_size_type::safe: return tr("Safe", "SPU block size");
+		case spu_block_size_type::mega: return tr("Mega", "SPU block size");
+		case spu_block_size_type::giga: return tr("Giga", "SPU block size");
 		}
 		break;
 	case emu_settings_type::ThreadSchedulerMode:
@@ -1119,6 +1119,9 @@ QString emu_settings::GetLocalizedSetting(const QString& original, emu_settings_
 		case camera_handler::null: return tr("Null", "Camera handler");
 		case camera_handler::fake: return tr("Fake", "Camera handler");
 		case camera_handler::qt: return tr("Qt", "Camera handler");
+#ifdef HAVE_SDL3
+		case camera_handler::sdl: return tr("SDL", "Camera handler");
+#endif
 		}
 		break;
 	case emu_settings_type::MusicHandler:
