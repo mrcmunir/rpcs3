@@ -7,12 +7,13 @@
 cd build || exit 1
 
 CPU_ARCH="${1:-x86_64}"
+MSYS2="${2:-clang64}"
 
 echo "Deploying rpcs3 windows clang $CPU_ARCH"
 
 # BUILD_blablabla is CI specific, so we wrap it for portability
 ARTIFACT_DIR=$(cygpath -u "$BUILD_ARTIFACTSTAGINGDIRECTORY")
-MSYS2_CLANG_BIN=$(cygpath -w /clang64/bin)
+MSYS2_CLANG_BIN=$(cygpath -w /"${MSYS2}"/bin)
 MSYS2_USR_BIN=$(cygpath -w /usr/bin)
 
 echo "Installing dependencies of: ./bin/rpcs3.exe (MSYS2 dir is '$MSYS2_CLANG_BIN', usr dir is '$MSYS2_USR_BIN')"
@@ -49,7 +50,7 @@ fi
 # Generate sha256 hashes
 # Write to file for GitHub releases
 sha256sum "$BUILD" | awk '{ print $1 }' | tee "$BUILD.sha256"
-echo "$(cat "$BUILD.sha256");$(stat -c %s "$BUILD")B" > GitHubReleaseMessage.txt
+echo "$(cat "$BUILD.sha256");$(stat -c %s "$BUILD")B" > "$RELEASE_MESSAGE"
 
 # Move files to publishing directory
 mkdir -p "$ARTIFACT_DIR"

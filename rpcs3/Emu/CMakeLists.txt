@@ -125,6 +125,7 @@ target_sources(rpcs3_emu PRIVATE
     ../Loader/PSF.cpp
     ../Loader/PUP.cpp
     ../Loader/TAR.cpp
+    ../Loader/ISO.cpp
     ../Loader/TROPUSR.cpp
     ../Loader/TRP.cpp
 )
@@ -422,6 +423,7 @@ target_sources(rpcs3_emu PRIVATE
     Io/TopShotFearmaster.cpp
     Io/Turntable.cpp
     Io/usb_device.cpp
+    Io/usb_microphone.cpp
     Io/usb_vfs.cpp
     Io/usio.cpp
     Io/LogitechG27.cpp

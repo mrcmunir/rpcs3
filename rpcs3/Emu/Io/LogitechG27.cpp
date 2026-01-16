@@ -267,7 +267,7 @@ static const std::map<logitech_personality,
 };
 
 // ref: https://github.com/libsdl-org/SDL/issues/7941, need to use SDL_HAPTIC_STEERING_AXIS for some windows drivers
-static const SDL_HapticDirection STEERING_DIRECTION =
+static constexpr SDL_HapticDirection STEERING_DIRECTION =
 {
 	.type = SDL_HAPTIC_STEERING_AXIS,
 	.dir = {0, 0, 0}
@@ -1486,8 +1486,8 @@ void usb_device_logitech_g27::interrupt_transfer(u32 buf_size, u8* buf, u32 endp
 						new_effect.condition.direction = STEERING_DIRECTION;
 						new_effect.condition.length = SDL_HAPTIC_INFINITY;
 						const u16 saturation = logitech_g27_clip_to_saturation(buf[4]);
-						const u16 deadband = 2 * 0xFFFF / 255;
-						s16 center = 0;
+						constexpr u16 deadband = 2 * 0xFFFF / 255;
+						constexpr s16 center = 0;
 						s16 left_coeff = 0;
 						s16 right_coeff = 0;
 						if (buf[1] == 0x03)
@@ -1752,7 +1752,7 @@ void usb_device_logitech_g27::interrupt_transfer(u32 buf_size, u8* buf, u32 endp
 						{
 							if (!SDL_RunHapticEffect(m_haptic_handle, m_effect_slots[i].effect_id, 1))
 							{
-								logitech_g27_log.error("Failed playing sdl effect %d on slot %d, %s\n", m_effect_slots[i].last_effect.type, i, SDL_GetError());
+								logitech_g27_log.error("Failed playing sdl effect %d on slot %d, %s", m_effect_slots[i].last_effect.type, i, SDL_GetError());
 							}
 						}
 						else
@@ -1796,14 +1796,14 @@ void usb_device_logitech_g27::interrupt_transfer(u32 buf_size, u8* buf, u32 endp
 								{
 									if (!SDL_RunHapticEffect(m_haptic_handle, m_effect_slots[i].effect_id, 1))
 									{
-										logitech_g27_log.error("Failed playing sdl effect %d on slot %d, %s\n", m_effect_slots[i].last_effect.type, i, SDL_GetError());
+										logitech_g27_log.error("Failed playing sdl effect %d on slot %d, %s", m_effect_slots[i].last_effect.type, i, SDL_GetError());
 									}
 								}
 								else
 								{
 									if (!SDL_StopHapticEffect(m_haptic_handle, m_effect_slots[i].effect_id))
 									{
-										logitech_g27_log.error("Failed stopping sdl effect %d on slot %d, %s\n", m_effect_slots[i].last_effect.type, i, SDL_GetError());
+										logitech_g27_log.error("Failed stopping sdl effect %d on slot %d, %s", m_effect_slots[i].last_effect.type, i, SDL_GetError());
 									}
 								}
 							}
@@ -1824,11 +1824,11 @@ void usb_device_logitech_g27::interrupt_transfer(u32 buf_size, u8* buf, u32 endp
 					{
 						if (cmd == 0x02)
 						{
-							logitech_g27_log.error("Tried to play effect slot %d but it was never uploaded\n", i);
+							logitech_g27_log.error("Tried to play effect slot %d but it was never uploaded", i);
 						}
 						else
 						{
-							logitech_g27_log.error("Tried to stop effect slot %d but it was never uploaded\n", i);
+							logitech_g27_log.error("Tried to stop effect slot %d but it was never uploaded", i);
 						}
 					}
 				}

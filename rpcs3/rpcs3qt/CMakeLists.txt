@@ -31,7 +31,9 @@ add_library(rpcs3_ui STATIC
     flow_widget_item.cpp
     game_compatibility.cpp
     game_list.cpp
+    game_list_actions.cpp
     game_list_base.cpp
+    game_list_context_menu.cpp
     game_list_delegate.cpp
     game_list_frame.cpp
     game_list_grid.cpp
@@ -178,7 +180,10 @@ if(HAS_MEMORY_BREAKPOINTS)
 endif()
 
 if(WIN32)
-    target_sources(rpcs3_ui PUBLIC "../windows.qrc")
+    target_sources(rpcs3_ui PRIVATE "../windows.qrc")
+    set_source_files_properties("../windows.qrc" PROPERTIES 
+        RCC_OPTIONS "--include;${CMAKE_CURRENT_SOURCE_DIR}/../qt/etc/qt.conf"
+    )
     target_compile_definitions(rpcs3_ui PRIVATE UNICODE _UNICODE)
 endif()
 
