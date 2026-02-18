@@ -39,6 +39,7 @@ struct gui_listener : logs::listener
 	lf_queue<packet_t> queue;
 
 	atomic_t<bool> show_prefix{false};
+	atomic_t<bool> logging_enabled{true};
 
 	gui_listener()
 		: logs::listener()
@@ -55,7 +56,7 @@ struct gui_listener : logs::listener
 	{
 		Q_UNUSED(stamp)
 
-		if (msg <= enabled)
+		if (msg <= enabled && (logging_enabled || msg <= logs::level::fatal))
 		{
 			packet_t p,* _new = &p;
 			_new->sev = msg;
@@ -162,11 +163,6 @@ log_frame::log_frame(std::shared_ptr<gui_settings> _gui_settings, QWidget* paren
 	CreateAndConnectActions();
 	LoadSettings();
 
-	if (m_ansi_tty)
-	{
-		m_tty_ansi_highlighter = new AnsiHighlighter(m_tty->document());
-	}
-
 	m_timer = new QTimer(this);
 	connect(m_timer, &QTimer::timeout, this, &log_frame::UpdateUI);
 }
@@ -224,7 +220,7 @@ void log_frame::CreateAndConnectActions()
 	// I, for one, welcome our lambda overlord
 	// It's either this or a signal mapper
 	// Then, probably making a list of these actions so that it's easier to iterate to generate the mapper.
-	auto l_initAct = [this](QAction* act, logs::level logLevel)
+	const auto l_initAct = [this](QAction* act, logs::level logLevel)
 	{
 		act->setCheckable(true);
 
@@ -237,7 +233,7 @@ void log_frame::CreateAndConnectActions()
 	};
 
 	m_clear_act = new QAction(tr("Clear"), this);
-	connect(m_clear_act, &QAction::triggered, [this]()
+	connect(m_clear_act, &QAction::triggered, this, [this]()
 	{
 		m_old_log_text.clear();
 		m_log->clear();
@@ -245,14 +241,14 @@ void log_frame::CreateAndConnectActions()
 	});
 
 	m_clear_tty_act = new QAction(tr("Clear"), this);
-	connect(m_clear_tty_act, &QAction::triggered, [this]()
+	connect(m_clear_tty_act, &QAction::triggered, this, [this]()
 	{
 		m_old_tty_text.clear();
 		m_tty->clear();
 	});
 
 	m_perform_goto_on_debugger = new QAction(tr("Go-To on Debugger"), this);
-	connect(m_perform_goto_on_debugger, &QAction::triggered, [this]()
+	connect(m_perform_goto_on_debugger, &QAction::triggered, this, [this]()
 	{
 		QPlainTextEdit* pte = (m_tabWidget->currentIndex() == 1 ? m_tty : m_log);
 		Q_EMIT PerformGoToOnDebugger(pte->textCursor().selectedText(), true);
@@ -274,7 +270,7 @@ void log_frame::CreateAndConnectActions()
 	});
 
 	m_perform_goto_thread_on_debugger = new QAction(tr("Show Thread on Debugger"), this);
-	connect(m_perform_goto_thread_on_debugger, &QAction::triggered, [this]()
+	connect(m_perform_goto_thread_on_debugger, &QAction::triggered, this, [this]()
 	{
 		QPlainTextEdit* pte = (m_tabWidget->currentIndex() == 1 ? m_tty : m_log);
 		Q_EMIT PerformGoToOnDebugger(pte->textCursor().selectedText(), false);
@@ -282,7 +278,7 @@ void log_frame::CreateAndConnectActions()
 
 	m_stack_act_tty = new QAction(tr("Stack Mode (TTY)"), this);
 	m_stack_act_tty->setCheckable(true);
-	connect(m_stack_act_tty, &QAction::toggled, [this](bool checked)
+	connect(m_stack_act_tty, &QAction::toggled, this, [this](bool checked)
 	{
 		m_gui_settings->SetValue(gui::l_stack_tty, checked);
 		m_stack_tty = checked;
@@ -290,14 +286,14 @@ void log_frame::CreateAndConnectActions()
 
 	m_ansi_act_tty = new QAction(tr("ANSI Code (TTY)"), this);
 	m_ansi_act_tty->setCheckable(true);
-	connect(m_ansi_act_tty, &QAction::toggled, [this](bool checked)
+	connect(m_ansi_act_tty, &QAction::toggled, this, [this](bool checked)
 	{
 		m_gui_settings->SetValue(gui::l_ansi_code, checked);
 		m_ansi_tty = checked;
 
 		if (m_ansi_tty && !m_tty_ansi_highlighter)
 		{
-			m_tty_ansi_highlighter = new AnsiHighlighter(m_tty->document());
+			m_tty_ansi_highlighter = new AnsiHighlighter(m_tty);
 		}
 		else if (!m_ansi_tty && m_tty_ansi_highlighter)
 		{
@@ -311,7 +307,7 @@ void log_frame::CreateAndConnectActions()
 	QAction* all_channels_act = new QAction(tr("All user channels"), m_tty_channel_acts);
 	all_channels_act->setCheckable(true);
 	all_channels_act->setChecked(m_tty_channel == -1);
-	connect(all_channels_act, &QAction::triggered, [this]()
+	connect(all_channels_act, &QAction::triggered, this, [this]()
 	{
 		m_tty_channel = -1;
 		m_tty_input->setPlaceholderText(tr("All user channels"));
@@ -322,7 +318,7 @@ void log_frame::CreateAndConnectActions()
 		QAction* act = new QAction(tr("Channel %0").arg(i), m_tty_channel_acts);
 		act->setCheckable(true);
 		act->setChecked(i == m_tty_channel);
-		connect(act, &QAction::triggered, [this, i]()
+		connect(act, &QAction::triggered, this, [this, i]()
 		{
 			m_tty_channel = i;
 			m_tty_input->setPlaceholderText(tr("Channel %0").arg(m_tty_channel));
@@ -343,7 +339,7 @@ void log_frame::CreateAndConnectActions()
 
 	m_stack_act_log = new QAction(tr("Stack Mode (Log)"), this);
 	m_stack_act_log->setCheckable(true);
-	connect(m_stack_act_log, &QAction::toggled, [this](bool checked)
+	connect(m_stack_act_log, &QAction::toggled, this, [this](bool checked)
 	{
 		m_gui_settings->SetValue(gui::l_stack, checked);
 		m_stack_log = checked;
@@ -351,7 +347,7 @@ void log_frame::CreateAndConnectActions()
 
 	m_stack_act_err = new QAction(tr("Stack Cell Errors"), this);
 	m_stack_act_err->setCheckable(true);
-	connect(m_stack_act_err, &QAction::toggled, [this](bool checked)
+	connect(m_stack_act_err, &QAction::toggled, this, [this](bool checked)
 	{
 		m_gui_settings->SetValue(gui::l_stack_err, checked);
 		g_log_all_errors = !checked;
@@ -359,15 +355,27 @@ void log_frame::CreateAndConnectActions()
 
 	m_show_prefix_act = new QAction(tr("Show Thread Prefix"), this);
 	m_show_prefix_act->setCheckable(true);
-	connect(m_show_prefix_act, &QAction::toggled, [this](bool checked)
+	connect(m_show_prefix_act, &QAction::toggled, this, [this](bool checked)
 	{
 		m_gui_settings->SetValue(gui::l_prefix, checked);
 		s_gui_listener.show_prefix = checked;
 	});
 
+	m_log_while_hidden_act = new QAction(tr("Print Log/TTY while hidden"), this);
+	m_log_while_hidden_act->setCheckable(true);
+	connect(m_log_while_hidden_act, &QAction::toggled, this, [this](bool checked)
+	{
+		m_gui_settings->SetValue(gui::l_log_hide, checked);
+		s_gui_listener.logging_enabled = checked || isVisible();
+	});
+	connect(this, &log_frame::visibilityChanged, this, [this](bool visible)
+	{
+		s_gui_listener.logging_enabled = m_log_while_hidden_act->isChecked() || visible;
+	});
+
 	m_tty_act = new QAction(tr("Enable TTY"), this);
 	m_tty_act->setCheckable(true);
-	connect(m_tty_act, &QAction::triggered, [this](bool checked)
+	connect(m_tty_act, &QAction::triggered, this, [this](bool checked)
 	{
 		m_gui_settings->SetValue(gui::l_tty, checked);
 	});
@@ -381,7 +389,7 @@ void log_frame::CreateAndConnectActions()
 	l_initAct(m_notice_act, logs::level::notice);
 	l_initAct(m_trace_act, logs::level::trace);
 
-	connect(m_log, &QWidget::customContextMenuRequested, [this](const QPoint& pos)
+	connect(m_log, &QWidget::customContextMenuRequested, this, [this](const QPoint& pos)
 	{
 		QMenu* menu = m_log->createStandardContextMenu();
 		menu->addAction(m_clear_act);
@@ -403,13 +411,14 @@ void log_frame::CreateAndConnectActions()
 		menu->addAction(m_stack_act_log);
 		menu->addAction(m_stack_act_err);
 		menu->addAction(m_show_prefix_act);
+		menu->addAction(m_log_while_hidden_act);
 		menu->addSeparator();
 		menu->addActions(m_log_level_acts->actions());
 
 		menu->exec(m_log->viewport()->mapToGlobal(pos));
 	});
 
-	connect(m_tty, &QWidget::customContextMenuRequested, [this](const QPoint& pos)
+	connect(m_tty, &QWidget::customContextMenuRequested, this, [this](const QPoint& pos)
 	{
 		QMenu* menu = m_tty->createStandardContextMenu();
 		menu->addAction(m_clear_tty_act);
@@ -432,13 +441,13 @@ void log_frame::CreateAndConnectActions()
 		menu->exec(m_tty->viewport()->mapToGlobal(pos));
 	});
 
-	connect(m_tabWidget, &QTabWidget::currentChanged, [this](int/* index*/)
+	connect(m_tabWidget, &QTabWidget::currentChanged, this, [this](int/* index*/)
 	{
 		if (m_find_dialog)
 			m_find_dialog->close();
 	});
 
-	connect(m_tty_input, &QLineEdit::returnPressed, [this]()
+	connect(m_tty_input, &QLineEdit::returnPressed, this, [this]()
 	{
 		std::string text = m_tty_input->text().toStdString();
 
@@ -491,6 +500,9 @@ void log_frame::LoadSettings()
 	m_stack_act_tty->setChecked(m_stack_tty);
 	m_ansi_act_tty->setChecked(m_ansi_tty);
 	m_stack_act_err->setChecked(!g_log_all_errors);
+
+	m_log_while_hidden_act->setChecked(m_gui_settings->GetValue(gui::l_log_hide).toBool());
+	s_gui_listener.logging_enabled = m_log_while_hidden_act->isChecked() || isVisible();
 
 	s_gui_listener.show_prefix = m_gui_settings->GetValue(gui::l_prefix).toBool();
 	m_show_prefix_act->setChecked(s_gui_listener.show_prefix);
@@ -590,6 +602,12 @@ void log_frame::RepaintTextColors()
 	html.replace(old_style, new_style);
 
 	m_log->document()->setHtml(html);
+
+	if (m_tty_ansi_highlighter)
+	{
+		m_tty_ansi_highlighter->update_colors(m_tty);
+		m_tty_ansi_highlighter->rehighlight();
+	}
 }
 
 void log_frame::UpdateUI()
@@ -599,9 +617,9 @@ void log_frame::UpdateUI()
 	const std::chrono::time_point log_timeout = start + 7ms;
 
 	// Check TTY logs
-	if (u64 size = std::max<s64>(0, m_tty_file ? (g_tty_size.load() - m_tty_file.pos()) : 0))
+	if (const u64 size = std::max<s64>(0, m_tty_file ? (g_tty_size.load() - m_tty_file.pos()) : 0))
 	{
-		if (m_tty_act->isChecked())
+		if (m_tty_act->isChecked() && s_gui_listener.logging_enabled)
 		{
 			m_tty_buf.resize(std::min<u64>(size, m_tty_limited_read ? m_tty_limited_read : usz{umax}));
 			m_tty_buf.resize(m_tty_file.read(&m_tty_buf.front(), m_tty_buf.size()));
@@ -781,7 +799,7 @@ void log_frame::UpdateUI()
 	usz first_rep_counter = m_log_counter;
 
 	// Batch output of multiple lines if possible (optimization)
-	auto flush = [&]()
+	const auto flush = [&]()
 	{
 		if (m_log_text.isEmpty() && !is_first_rep)
 		{

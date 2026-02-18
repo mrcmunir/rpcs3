@@ -247,8 +247,9 @@ private:
 		// uDraw GameTablet
 		{0x20D6, 0xCB17, 0xCB17, "uDraw GameTablet", nullptr, nullptr},
 
-		// DVB-T
+		// TV Tuners
 		{0x1415, 0x0003, 0x0003, "PlayTV SCEH-0036", nullptr, nullptr},
+		// {0x054c, 0x04b2, 0x04b2, "Torne CECH-ZD1 J", nullptr, nullptr},
 
 		// PSP Devices
 		{0x054C, 0x01C8, 0x01C8, "PSP Type A", nullptr, nullptr},
@@ -555,6 +556,8 @@ usb_handler_thread::usb_handler_thread()
 
 	switch (g_cfg.audio.microphone_type)
 	{
+		case microphone_handler::null:
+			break;
 		case microphone_handler::standard:
 			usb_devices.push_back(std::make_shared<usb_device_mic>(0, get_new_location(), MicType::Logitech));
 			break;
