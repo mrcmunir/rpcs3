@@ -569,7 +569,7 @@ std::unique_ptr<fs::file_base> iso_device::open(const std::string& path, bs_t<fs
 		return nullptr;
 	}
 
-	return std::make_unique<iso_file>(fs::file(iso_path), *node);
+	return std::make_unique<iso_file>(fs::file(iso_path, mode), *node);
 }
 
 std::unique_ptr<fs::dir_base> iso_device::open_dir(const std::string& path)
@@ -611,7 +611,7 @@ void load_iso(const std::string& path)
 
 void unload_iso()
 {
-	sys_log.notice("Unoading iso");
+	sys_log.notice("Unloading iso");
 
 	fs::set_virtual_device("iso_overlay_fs_dev", stx::shared_ptr<iso_device>());
 }

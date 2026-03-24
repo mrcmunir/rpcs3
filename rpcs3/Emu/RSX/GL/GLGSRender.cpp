@@ -138,8 +138,7 @@ void GLGSRender::on_init_thread()
 	gl::init();
 	gl::set_command_context(gl_state);
 
-	// Enable adaptive vsync if vsync is requested
-	gl::set_swapinterval(g_cfg.video.vsync ? -1 : 0);
+	update_swap_interval();
 
 	if (g_cfg.video.debug_output)
 		gl::enable_debugging();
@@ -249,22 +248,23 @@ void GLGSRender::on_init_thread()
 	// Fallback null texture instead of relying on texture0
 	{
 		std::array<u32, 8> pixeldata = { 0, 0, 0, 0, 0, 0, 0, 0 };
+		const rsx::io_buffer src_buf = std::span<u32>(pixeldata);
 
 		// 1D
 		auto tex1D = std::make_unique<gl::texture>(GL_TEXTURE_1D, 1, 1, 1, 1, 1, GL_RGBA8, RSX_FORMAT_CLASS_COLOR);
-		tex1D->copy_from(pixeldata.data(), gl::texture::format::rgba, gl::texture::type::uint_8_8_8_8, {});
+		tex1D->copy_from(src_buf, gl::texture::format::rgba, gl::texture::type::uint_8_8_8_8, {});
 
 		// 2D
 		auto tex2D = std::make_unique<gl::texture>(GL_TEXTURE_2D, 1, 1, 1, 1, 1, GL_RGBA8, RSX_FORMAT_CLASS_COLOR);
-		tex2D->copy_from(pixeldata.data(), gl::texture::format::rgba, gl::texture::type::uint_8_8_8_8, {});
+		tex2D->copy_from(src_buf, gl::texture::format::rgba, gl::texture::type::uint_8_8_8_8, {});
 
 		// 3D
 		auto tex3D = std::make_unique<gl::texture>(GL_TEXTURE_3D, 1, 1, 1, 1, 1, GL_RGBA8, RSX_FORMAT_CLASS_COLOR);
-		tex3D->copy_from(pixeldata.data(), gl::texture::format::rgba, gl::texture::type::uint_8_8_8_8, {});
+		tex3D->copy_from(src_buf, gl::texture::format::rgba, gl::texture::type::uint_8_8_8_8, {});
 
 		// CUBE
 		auto texCUBE = std::make_unique<gl::texture>(GL_TEXTURE_CUBE_MAP, 1, 1, 1, 1, 1, GL_RGBA8, RSX_FORMAT_CLASS_COLOR);
-		texCUBE->copy_from(pixeldata.data(), gl::texture::format::rgba, gl::texture::type::uint_8_8_8_8, {});
+		texCUBE->copy_from(src_buf, gl::texture::format::rgba, gl::texture::type::uint_8_8_8_8, {});
 
 		m_null_textures[GL_TEXTURE_1D] = std::move(tex1D);
 		m_null_textures[GL_TEXTURE_2D] = std::move(tex2D);
@@ -397,6 +397,7 @@ void GLGSRender::on_init_thread()
 	m_ui_renderer.create();
 	m_video_output_pass.create();
 
+	gl::init_global_texture_resources();
 	m_gl_texture_cache.initialize();
 
 	m_prog_buffer.initialize
@@ -576,6 +577,33 @@ void GLGSRender::on_exit()
 	zcull_ctrl.release();
 
 	gl::set_primary_context_thread(false);
+}
+
+void GLGSRender::update_swap_interval()
+{
+	const vsync_mode current_mode = g_cfg.video.vsync;
+	if (current_mode == m_vsync_mode)
+	{
+		return;
+	}
+
+	// Enable adaptive vsync if vsync is requested
+	int swap_interval = 0;
+	switch (current_mode)
+	{
+	default:
+	case vsync_mode::off:
+		break;
+	case vsync_mode::adaptive:
+		swap_interval = -1;
+		break;
+	case vsync_mode::full:
+		swap_interval = 1;
+		break;
+	}
+
+	gl::set_swapinterval(swap_interval);
+	m_vsync_mode = current_mode;
 }
 
 void GLGSRender::clear_surface(u32 arg)
