@@ -126,6 +126,7 @@ target_sources(rpcs3_emu PRIVATE
     ../Loader/PUP.cpp
     ../Loader/TAR.cpp
     ../Loader/ISO.cpp
+    ../Loader/iso_cache.cpp
     ../Loader/TROPUSR.cpp
     ../Loader/TRP.cpp
 )
@@ -645,6 +646,9 @@ if(TARGET 3rdparty_vulkan)
     endif()
 endif()
 
+if(NOT WIN32)
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+endif()
 find_package(Threads REQUIRED)
 
 target_link_libraries(rpcs3_emu

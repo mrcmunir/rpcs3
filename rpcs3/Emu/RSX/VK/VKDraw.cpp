@@ -164,7 +164,7 @@ void VKGSRender::update_draw_state()
 		rsx::method_registers.current_draw_clause.primitive <= rsx::primitive_type::line_strip)
 	{
 		const float actual_line_width =
-			m_device->get_wide_lines_support() ? rsx::method_registers.line_width() * rsx::get_resolution_scale() : 1.f;
+			m_device->get_wide_lines_support() ? rsx::method_registers.line_width() * resolution_scaling_config.scale_factor() : 1.f;
 		vkCmdSetLineWidth(*m_current_command_buffer, actual_line_width);
 	}
 
@@ -470,6 +470,10 @@ void VKGSRender::load_texture_env()
 			{
 				// Clamp min and max lod
 				actual_mipmaps = static_cast<f32>(sampler_state->external_subresource_desc.sections_to_copy.size());
+			}
+			else if (sampler_state->external_subresource_desc.op == rsx::deferred_request_command::cubemap_unwrap)
+			{
+				actual_mipmaps = static_cast<f32>(sampler_state->external_subresource_desc.mipmaps);
 			}
 			else
 			{

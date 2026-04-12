@@ -287,6 +287,7 @@ namespace gl
 			u32 transfer_width = width;
 			u32 transfer_height = height;
 			u32 transfer_x = 0, transfer_y = 0;
+			u16 resolution_scale_percent = 100;
 
 			if (context == rsx::texture_upload_context::framebuffer_storage)
 			{
@@ -295,9 +296,10 @@ namespace gl
 				target_texture = surface->get_surface(rsx::surface_access::transfer_read);
 				transfer_width *= surface->samples_x;
 				transfer_height *= surface->samples_y;
+				resolution_scale_percent = surface->resolution_scaling_config.scale_percent;
 			}
 
-			if ((rsx::get_resolution_scale_percent() != 100 && context == rsx::texture_upload_context::framebuffer_storage) ||
+			if ((resolution_scale_percent != 100 && context == rsx::texture_upload_context::framebuffer_storage) ||
 				(vram_texture->pitch() != rsx_pitch))
 			{
 				areai src_area = { 0, 0, 0, 0 };
@@ -584,7 +586,8 @@ namespace gl
 		gl::texture_view* generate_cubemap_from_images(gl::command_context& cmd, u32 gcm_format, u16 size, const rsx::simple_array<copy_region_descriptor>& sources, const rsx::texture_channel_remap_t& remap_vector) override
 		{
 			auto _template = get_template_from_collection_impl(sources);
-			auto result = create_temporary_subresource_impl(cmd, _template, GL_NONE, GL_TEXTURE_CUBE_MAP, gcm_format, 0, 0, size, size, 1, 1, remap_vector, false);
+			const u8 mip_count = 1 + sources.reduce(0, FN(std::max<u8>(x, y.level)));
+			auto result = create_temporary_subresource_impl(cmd, _template, GL_NONE, GL_TEXTURE_CUBE_MAP, gcm_format, 0, 0, size, size, 1, mip_count, remap_vector, false);
 
 			copy_transfer_regions_impl(cmd, result->image(), sources);
 			return result;

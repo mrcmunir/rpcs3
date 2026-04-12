@@ -201,8 +201,10 @@ public:
 	static constexpr std::string_view game_id_boot_prefix = "%RPCS3_GAMEID%:";
 	static constexpr std::string_view vfs_boot_prefix = "%RPCS3_VFS%:";
 
-	Emulator() noexcept = default;
-	~Emulator() noexcept = default;
+	Emulator() noexcept;
+	~Emulator() noexcept;
+
+	static bool IsAvailable() noexcept;
 
 	void SetCallbacks(EmuCallbacks&& cb)
 	{
@@ -442,7 +444,7 @@ public:
 	void Resume();
 	void GracefulShutdown(bool allow_autoexit = true, bool async_op = false, bool savestate = false, bool continuous_mode = false);
 	void Kill(bool allow_autoexit = true, bool savestate = false, savestate_stage* stage = nullptr);
-	game_boot_result Restart(bool graceful = true);
+	game_boot_result Restart(bool graceful = true, bool reset_path = true);
 	bool Quit(bool force_quit);
 	static void CleanUp();
 
