@@ -19,11 +19,26 @@ if(MSVC)
 else()
 	check_cxx_compiler_flag("-march=native" COMPILER_SUPPORTS_MARCH_NATIVE)
 	check_cxx_compiler_flag("-msse -msse2 -mcx16" COMPILER_X86)
-	if (APPLE)
-		check_cxx_compiler_flag("-march=armv8.4-a" COMPILER_ARM)
+	
+	# Explicitly select architecture based on user input or customized defaults
+	if(DEFINED ARM_TARGET_VERSION)
+		if(ARM_TARGET_VERSION STREQUAL "8.0")
+			set(ARM_MARCH_FLAG "-march=armv8-a+crc+simd+fp")
+		elseif(ARM_TARGET_VERSION STREQUAL "8.1")
+			set(ARM_MARCH_FLAG "-march=armv8.1-a")
+		elseif(ARM_TARGET_VERSION STREQUAL "8.4")
+			set(ARM_MARCH_FLAG "-march=armv8.4-a")
+		endif()
 	else()
-		check_cxx_compiler_flag("-march=armv8.1-a" COMPILER_ARM)
+		# Customized default logic to prioritize ARMv8.0-A on non-Apple environments
+		if(APPLE)
+			set(ARM_MARCH_FLAG "-march=armv8.4-a")
+		else()
+			set(ARM_MARCH_FLAG "-march=armv8-a+crc+simd+fp")
+		endif()
 	endif()
+
+	check_cxx_compiler_flag("${ARM_MARCH_FLAG}" COMPILER_ARM)
 
 	add_compile_options(-Wall)
 	add_compile_options(-fno-exceptions)
@@ -32,12 +47,11 @@ else()
 	if(USE_NATIVE_INSTRUCTIONS AND COMPILER_SUPPORTS_MARCH_NATIVE)
 		add_compile_options(-march=native)
 	elseif(COMPILER_ARM)
-		# This section needs a review. Apple claims armv8.5-a on M-series but doesn't support SVE.
-		# Note that compared to the rest of the 8.x family, 8.1 is very restrictive and we'll have to bump the requirement in future to get anything meaningful.
-		if (APPLE)
-			add_compile_options(-march=armv8.4-a)
-		else()
-			add_compile_options(-march=armv8.1-a)
+		add_compile_options(${ARM_MARCH_FLAG})
+		
+		# Print status when targeting ARMv8.0-A either by choice or by default
+		if((NOT DEFINED ARM_TARGET_VERSION OR ARM_TARGET_VERSION STREQUAL "8.0") AND NOT APPLE)
+			message(STATUS "Using ARMv8-a with standard extensions (+crc+simd+fp) as default")
 		endif()
 	elseif(COMPILER_X86)
 		# Some compilers will set both X86 and ARM, so check explicitly for ARM first
@@ -96,6 +110,11 @@ else()
 		# This hides our LLVM from mesa's LLVM, otherwise we get some unresolvable conflicts.
 		add_link_options(-Wl,--exclude-libs,ALL)
 	elseif(WIN32)
+		add_compile_definitions(__STDC_FORMAT_MACROS=1)
+
+		# Workaround for mingw64 (MSYS2)
+		add_link_options(-Wl,--allow-multiple-definition)
+
 		# Increase stack limit to 8 MB
 		add_link_options(-Wl,--stack -Wl,8388608)
 	endif()
