@@ -29,8 +29,8 @@ jobs:
             docker_img: "rpcs3/rpcs3-ci-jammy-aarch64:1.13"
             build_sh: "/rpcs3/.ci/build-linux-aarch64.sh"
             compiler: clang
-            UPLOAD_COMMIT_HASH: a1d35836e8d45bfc6f63c26f0a3e5d46ef622fe1
-            UPLOAD_REPO_FULL_NAME: "rpcs3/rpcs3-binaries-linux-arm64"
+         
+            UPLOAD_REPO_FULL_NAME: ${{ github.repository }}
           - os: ubuntu-24.04-arm
             docker_img: "rpcs3/rpcs3-ci-jammy-aarch64:1.13"
             build_sh: "/rpcs3/.ci/build-linux-aarch64.sh"
@@ -44,7 +44,6 @@ jobs:
       ARTDIR: "/root/artifacts"
       RELEASE_MESSAGE: "/rpcs3/GitHubReleaseMessage.txt"
       COMPILER: ${{ matrix.compiler }}
-      UPLOAD_COMMIT_HASH: ${{ matrix.UPLOAD_COMMIT_HASH }}
       UPLOAD_REPO_FULL_NAME: ${{ matrix.UPLOAD_REPO_FULL_NAME }}
       RUN_UNIT_TESTS: ${{ github.event_name == 'pull_request' && 'ON' || 'OFF' }}
     steps:
@@ -87,6 +86,7 @@ jobs:
           matrix.compiler == 'clang'
         env:
           RPCS3_TOKEN: ${{ secrets.RPCS3_TOKEN }}
+          UPLOAD_COMMIT_HASH: ${{ github.sha }}
         run: |
           COMM_TAG=$(awk '/version{.*}/ { printf("%d.%d.%d", $5, $6, $7) }' ./rpcs3/rpcs3_version.cpp)
           COMM_COUNT=$(git rev-list --count HEAD)
