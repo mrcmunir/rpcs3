@@ -1,0 +1,102 @@
+name: Build RPCS3 Linux ARM64
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  BUILD_REPOSITORY_NAME: ${{ github.repository }}
+  BUILD_SOURCEBRANCHNAME: ${{ github.ref_name }}
+  BUILD_PR_NUMBER: ${{ github.event.pull_request.number }}
+  BUILD_SOURCEVERSION: ${{ github.sha }}
+  BUILD_ARTIFACTSTAGINGDIRECTORY: ${{ github.workspace }}/artifacts/
+
+jobs:
+  Linux_ARM64_Build:
+    if: github.event_name != 'push' || (github.repository == 'mrcmunir/rpcs3' && github.ref_name == 'nvidia-l4tv2')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04-arm
+            docker_img: "rpcs3/rpcs3-ci-jammy-aarch64:1.13"
+            build_sh: "/rpcs3/.ci/build-linux-aarch64.sh"
+            compiler: clang
+            UPLOAD_COMMIT_HASH: a1d35836e8d45bfc6f63c26f0a3e5d46ef622fe1
+            UPLOAD_REPO_FULL_NAME: "rpcs3/rpcs3-binaries-linux-arm64"
+          - os: ubuntu-24.04-arm
+            docker_img: "rpcs3/rpcs3-ci-jammy-aarch64:1.13"
+            build_sh: "/rpcs3/.ci/build-linux-aarch64.sh"
+            compiler: gcc
+    name: RPCS3 Linux ARM64 ${{ matrix.compiler }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      DEPLOY_APPIMAGE: true
+      APPDIR: "/rpcs3/build/appdir"
+      ARTDIR: "/root/artifacts"
+      RELEASE_MESSAGE: "/rpcs3/GitHubReleaseMessage.txt"
+      COMPILER: ${{ matrix.compiler }}
+      UPLOAD_COMMIT_HASH: ${{ matrix.UPLOAD_COMMIT_HASH }}
+      UPLOAD_REPO_FULL_NAME: ${{ matrix.UPLOAD_REPO_FULL_NAME }}
+      RUN_UNIT_TESTS: ${{ github.event_name == 'pull_request' && 'ON' || 'OFF' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+        with:
+          fetch-depth: 0
+
+      - name: Restore build Ccache
+        uses: actions/cache/restore@main
+        id: restore-build-ccache
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-${{ runner.arch }}-ccache-${{ matrix.compiler }}-${{ github.run_id }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-ccache-${{ matrix.compiler }}-
+
+      - name: Docker setup and build
+        run: |
+          docker pull --quiet ${{ matrix.docker_img }}
+          docker run \
+            -v $PWD:/rpcs3 \
+            --env-file .ci/docker.env \
+            -v ${{ env.CCACHE_DIR }}:/root/.ccache  \
+            -v ${{ env.BUILD_ARTIFACTSTAGINGDIRECTORY }}:${{ env.ARTDIR }} \
+            ${{ matrix.docker_img }} \
+            ${{ matrix.build_sh }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@main
+        with:
+          name: RPCS3 for Linux ARM64 (${{ matrix.compiler }})
+          path: ${{ env.BUILD_ARTIFACTSTAGINGDIRECTORY }}/*.AppImage
+          compression-level: 0
+
+      - name: Deploy master build to GitHub Releases (solo clang)
+        if: |
+          github.event_name != 'pull_request' &&
+          github.repository == 'mrcmunir/rpcs3' &&
+          github.ref == 'refs/heads/nvidia-l4tv2' &&
+          matrix.compiler == 'clang'
+        env:
+          RPCS3_TOKEN: ${{ secrets.RPCS3_TOKEN }}
+        run: |
+          COMM_TAG=$(awk '/version{.*}/ { printf("%d.%d.%d", $5, $6, $7) }' ./rpcs3/rpcs3_version.cpp)
+          COMM_COUNT=$(git rev-list --count HEAD)
+          COMM_HASH=$(git rev-parse --short=8 HEAD)
+          export AVVER="${COMM_TAG}-${COMM_COUNT}"
+          .ci/github-upload.sh
+
+      - name: Save build Ccache
+        if: github.ref == 'refs/heads/nvidia-l4tv2'
+        uses: actions/cache/save@main
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ steps.restore-build-ccache.outputs.cache-primary-key }}
