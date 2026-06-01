@@ -1879,22 +1879,64 @@ inline v128 gv_muladdfs(const v128& a, const v128& b, const v128& c)
 
 // -> ssat((a * b * 2 + (c << 16) + 0x8000) >> 16)
 inline v128 gv_rmuladds_hds16(const v128& a, const v128& b, const v128& c)
-{
 #if defined(ARCH_ARM64)
-	return vqrdmlahq_s16(c, a, b);
+//#ifdef __ARM_FEATURE_QRDMX
+        // ARMv8.1+ native instruction
+//        return vqrdmlahq_s16(c, a, b);
+//#else
+        // ARMv8.0 emulation with standard NEON
+        int16x8_t va = vreinterpretq_s16_u8(a);
+        int16x8_t vb = vreinterpretq_s16_u8(b);
+        int16x8_t vc = vreinterpretq_s16_u8(c);
+
+        // Sign-extend to 32-bit
+        int32x4_t al = vmovl_s16(vget_low_s16(va));
+        int32x4_t ah = vmovl_s16(vget_high_s16(va));
+        int32x4_t bl = vmovl_s16(vget_low_s16(vb));
+        int32x4_t bh = vmovl_s16(vget_high_s16(vb));
+
+        // a * b
+        int32x4_t pl = vmulq_s32(al, bl);
+        int32x4_t ph = vmulq_s32(ah, bh);
+
+        // a * b * 2
+        pl = vshlq_n_s32(pl, 1);
+        ph = vshlq_n_s32(ph, 1);
+
+        // c << 16
+        int32x4_t cl = vshlq_n_s32(vmovl_s16(vget_low_s16(vc)), 16);
+        int32x4_t ch = vshlq_n_s32(vmovl_s16(vget_high_s16(vc)), 16);
+
+        // Add rounding constant 0x8000
+        const int32x4_t round = vdupq_n_s32(0x8000);
+        int32x4_t res_l = vaddq_s32(vaddq_s32(pl, cl), round);
+        int32x4_t res_h = vaddq_s32(vaddq_s32(ph, ch), round);
+
+        // Shift right by 16 (arithmetic shift, works for signed)
+        res_l = vshrq_n_s32(res_l, 16);
+        res_h = vshrq_n_s32(res_h, 16);
+
+        // Saturate to 16-bit signed
+        int16x4_t low = vqmovn_s32(res_l);
+        int16x4_t high = vqmovn_s32(res_h);
+        int16x8_t result = vcombine_s16(low, high);
+
+        return vreinterpretq_u8_s16(result);
+#endif
 #elif defined(ARCH_X64)
-	const auto x80 = _mm_set1_epi16(0x80); // 0x80 * 0x80 = 0x4000, add this to the product
-	const auto al = _mm_unpacklo_epi16(a, x80);
-	const auto ah = _mm_unpackhi_epi16(a, x80);
-	const auto bl = _mm_unpacklo_epi16(b, x80);
-	const auto bh = _mm_unpackhi_epi16(b, x80);
-	const auto ml = _mm_srai_epi32(_mm_madd_epi16(al, bl), 15);
-	const auto mh = _mm_srai_epi32(_mm_madd_epi16(ah, bh), 15);
-	const auto cl = _mm_srai_epi32(_mm_unpacklo_epi16(_mm_setzero_si128(), c), 16);
-	const auto ch = _mm_srai_epi32(_mm_unpackhi_epi16(_mm_setzero_si128(), c), 16);
-	const auto sl = _mm_add_epi32(ml, cl);
-	const auto sh = _mm_add_epi32(mh, ch);
-	return _mm_packs_epi32(sl, sh);
+    // original x86 code unchanged
+    const auto x80 = _mm_set1_epi16(0x80);
+    const auto al = _mm_unpacklo_epi16(a, x80);
+    const auto ah = _mm_unpackhi_epi16(a, x80);
+    const auto bl = _mm_unpacklo_epi16(b, x80);
+    const auto bh = _mm_unpackhi_epi16(b, x80);
+    const auto ml = _mm_srai_epi32(_mm_madd_epi16(al, bl), 15);
+    const auto mh = _mm_srai_epi32(_mm_madd_epi16(ah, bh), 15);
+    const auto cl = _mm_srai_epi32(_mm_unpacklo_epi16(_mm_setzero_si128(), c), 16);
+    const auto ch = _mm_srai_epi32(_mm_unpackhi_epi16(_mm_setzero_si128(), c), 16);
+    const auto sl = _mm_add_epi32(ml, cl);
+    const auto sh = _mm_add_epi32(mh, ch);
+    return _mm_packs_epi32(sl, sh);
 #endif
 }
 
