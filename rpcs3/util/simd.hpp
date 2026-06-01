@@ -1879,6 +1879,7 @@ inline v128 gv_muladdfs(const v128& a, const v128& b, const v128& c)
 
 // -> ssat((a * b * 2 + (c << 16) + 0x8000) >> 16)
 inline v128 gv_rmuladds_hds16(const v128& a, const v128& b, const v128& c)
+{
 #if defined(ARCH_ARM64)
 //#ifdef __ARM_FEATURE_QRDMX
         // ARMv8.1+ native instruction
