@@ -3,7 +3,7 @@ name: Build RPCS3 Linux ARM64
 on:
   push:
     branches:
-      - master
+      - nvidia-l4tv2
   pull_request:
   workflow_dispatch:
 
