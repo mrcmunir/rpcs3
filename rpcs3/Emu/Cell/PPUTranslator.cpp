@@ -447,6 +447,13 @@ Function* PPUTranslator::GetSymbolResolver(const ppu_module<lv2_obj>& info)
 
 Value* PPUTranslator::VecHandleNan(Value* val)
 {
+	if (m_use_avx512 && !g_cfg.core.set_daz_and_ftz)
+	{
+		// VFIXUPIMMPS is only equivalent when DAZ is disabled.
+		// Select the canonical NaN for QNaN/SNaN and pass through every other class.
+		return vfixupimmps(value<f32[4]>(nan_vec4), value<f32[4]>(val), splat<u32[4]>(0x1111'1100), 0x10, 0xff).eval(m_ir);
+	}
+
 	const auto is_nan = m_ir->CreateFCmpUNO(val, val);
 
 	val = m_ir->CreateSelect(is_nan, nan_vec4, val);
@@ -459,7 +466,16 @@ Value* PPUTranslator::VecHandleDenormal(Value* val)
 	const auto type = val->getType();
 	const auto value = bitcast(val, GetType<u32[4]>());
 
-	const auto mask = SExt(m_ir->CreateICmpEQ(m_ir->CreateAnd(value, Broadcast(RegLoad(m_jm_mask), 4)), ConstantAggregateZero::get(value->getType())), GetType<s32[4]>());
+	const auto is_zero_or_denormal = m_ir->CreateICmpEQ(m_ir->CreateAnd(value, Broadcast(RegLoad(m_jm_mask), 4)), ConstantAggregateZero::get(value->getType()));
+
+	if (m_use_avx512)
+	{
+		// AVX-512 lowers this to vptestnmd and a masked AND.
+		const auto signed_zero = m_ir->CreateAnd(value, Broadcast(m_ir->getInt32(0x8000'0000), 4));
+		return bitcast(m_ir->CreateSelect(is_zero_or_denormal, signed_zero, value), type);
+	}
+
+	const auto mask = SExt(is_zero_or_denormal, GetType<s32[4]>());
 	const auto nz = m_ir->CreateLShr(mask, 1);
 	const auto result = m_ir->CreateAnd(m_ir->CreateNot(nz), value);
 
