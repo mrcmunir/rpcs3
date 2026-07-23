@@ -48,6 +48,7 @@
 #include "sound_effect_manager_dialog.h"
 #include "recording_settings_dialog.h"
 #include "config_database.h"
+#include "guest_memory_dumper.h"
 
 #include <thread>
 #include <unordered_set>
@@ -2192,6 +2193,7 @@ void main_window::EnableMenus(bool enabled) const
 	// Tools
 	ui->toolskernel_explorerAct->setEnabled(enabled);
 	ui->toolsmemory_viewerAct->setEnabled(enabled);
+	ui->toolsDumpGuestMemoryAct->setEnabled(enabled);
 	ui->toolsRsxDebuggerAct->setEnabled(enabled);
 	ui->toolsSystemCommandsAct->setEnabled(enabled);
 	ui->actionCreate_RSX_Capture->setEnabled(enabled);
@@ -3385,6 +3387,12 @@ void main_window::CreateConnects()
 	{
 		if (!Emu.IsStopped())
 			idm::make<memory_viewer_handle>(this, make_basic_ppu_disasm());
+	});
+
+	connect(ui->toolsDumpGuestMemoryAct, &QAction::triggered, this, [this]()
+	{
+		guest_memory_dumper* dumper = new guest_memory_dumper(this, true);
+		dumper->dump_guest_memory();
 	});
 
 	connect(ui->toolsRsxDebuggerAct, &QAction::triggered, this, [this]
