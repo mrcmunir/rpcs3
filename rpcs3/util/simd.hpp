@@ -1881,47 +1881,43 @@ inline v128 gv_muladdfs(const v128& a, const v128& b, const v128& c)
 inline v128 gv_rmuladds_hds16(const v128& a, const v128& b, const v128& c)
 {
 #if defined(ARCH_ARM64)
-    // ARMv8.0 emulation with standard NEON
+    // Cast the generic v128 type using explicit NEON reinterprets
     int16x8_t va = vreinterpretq_s16_u8(a);
     int16x8_t vb = vreinterpretq_s16_u8(b);
     int16x8_t vc = vreinterpretq_s16_u8(c);
 
-    // Sign-extend to 32-bit
-    int32x4_t al = vmovl_s16(vget_low_s16(va));
-    int32x4_t ah = vmovl_s16(vget_high_s16(va));
-    int32x4_t bl = vmovl_s16(vget_low_s16(vb));
-    int32x4_t bh = vmovl_s16(vget_high_s16(vb));
+    // Perform widening multiplication (a * b) directly into 32-bit registers
+    // This removes the need for separate vmovl_s16 calls for 'a' and 'b'
+    int32x4_t pl = vmull_s16(vget_low_s16(va), vget_low_s16(vb));
+    int32x4_t ph = vmull_high_s16(va, vb);
 
-    // a * b
-    int32x4_t pl = vmulq_s32(al, bl);
-    int32x4_t ph = vmulq_s32(ah, bh);
-
-    // a * b * 2
+    // Double the product: a * b * 2
     pl = vshlq_n_s32(pl, 1);
     ph = vshlq_n_s32(ph, 1);
 
-    // c << 16
+    // Sign-extend and shift 'c' left by 16: c << 16
     int32x4_t cl = vshlq_n_s32(vmovl_s16(vget_low_s16(vc)), 16);
-    int32x4_t ch = vshlq_n_s32(vmovl_s16(vget_high_s16(vc)), 16);
+    int32x4_t ch = vshlq_n_s32(vmovl_high_s16(vc), 16); // Fixed: vget_high_s16 combined with vmovl is vmovl_high_s16
 
-    // Add rounding constant 0x8000
+    // Accumulate all parts and add the rounding constant 0x8000
     const int32x4_t round = vdupq_n_s32(0x8000);
     int32x4_t res_l = vaddq_s32(vaddq_s32(pl, cl), round);
     int32x4_t res_h = vaddq_s32(vaddq_s32(ph, ch), round);
 
-    // Shift right by 16 (arithmetic shift, works for signed)
+    // Arithmetic shift right by 16: >> 16
     res_l = vshrq_n_s32(res_l, 16);
     res_h = vshrq_n_s32(res_h, 16);
 
-    // Saturate to 16-bit signed
+    // Saturate to 16-bit signed (ssat) and pack
     int16x4_t low = vqmovn_s32(res_l);
     int16x4_t high = vqmovn_s32(res_h);
     int16x8_t result = vcombine_s16(low, high);
 
+    // Return casted back to the original type
     return vreinterpretq_u8_s16(result);
+	
 #elif defined(ARCH_X64)
-    // original x86 code unchanged
-    const auto x80 = _mm_set1_epi16(0x80);
+    const auto x80 = _mm_set1_epi16(0x80); 
     const auto al = _mm_unpacklo_epi16(a, x80);
     const auto ah = _mm_unpackhi_epi16(a, x80);
     const auto bl = _mm_unpacklo_epi16(b, x80);
