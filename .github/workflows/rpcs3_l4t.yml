@@ -1,5 +1,8 @@
 name: Build RPCS3 Linux ARM64
 
+defaults:
+  run:
+    shell: bash
 on:
   push:
     branches:
@@ -26,12 +29,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-24.04-arm
-            docker_img: "rpcs3/rpcs3-ci-jammy-aarch64:2.0"    
+            docker_img: "rpcs3/rpcs3-ci-jammy-aarch64:2.1"
             build_sh: "/rpcs3/.ci/build-linux-aarch64.sh"
             compiler: clang
-            UPLOAD_REPO_FULL_NAME: ${{ github.repository }}
           - os: ubuntu-24.04-arm
-            docker_img: "rpcs3/rpcs3-ci-jammy-aarch64:2.0"    
+            docker_img: "rpcs3/rpcs3-ci-jammy-aarch64:2.1"
             build_sh: "/rpcs3/.ci/build-linux-aarch64.sh"
             compiler: gcc
     name: RPCS3 Linux ARM64 ${{ matrix.compiler }}
@@ -43,7 +45,7 @@ jobs:
       ARTDIR: "/root/artifacts"
       RELEASE_MESSAGE: "/rpcs3/GitHubReleaseMessage.txt"
       COMPILER: ${{ matrix.compiler }}
-      UPLOAD_REPO_FULL_NAME: ${{ matrix.UPLOAD_REPO_FULL_NAME }}
+      UPLOAD_REPO_FULL_NAME: ${{ github.repository }}
       RUN_UNIT_TESTS: ${{ github.event_name == 'pull_request' && 'ON' || 'OFF' }}
     steps:
       - name: Checkout repository
