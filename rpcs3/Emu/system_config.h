@@ -38,6 +38,8 @@ struct cfg_root : cfg::node
 		cfg::_enum<spu_block_size_type> spu_block_size{ this, "SPU Block Size", spu_block_size_type::safe };
 		cfg::_bool spu_accurate_dma{ this, "Accurate SPU DMA", false };
 		cfg::_bool spu_accurate_reservations{ this, "Accurate SPU Reservations", true };
+		cfg::_bool spu_mmio_delay_enabled{ this, "SPU MMIO Delay Enabled", false, true};
+		cfg::uint<3, 1000> spu_mmio_delay{ this, "SPU MMIO Delay", 100, true };
 		cfg::_bool accurate_cache_line_stores{ this, "Accurate Cache Line Stores", false };
 		cfg::_bool rsx_accurate_res_access{this, "Accurate RSX reservation access", false, true};
 		cfg::_bool ppu_reservation_priority_over_spu{this, "PPU Reservation Priority Over SPUs", false, true};
@@ -71,6 +73,7 @@ struct cfg_root : cfg::node
 		cfg::_bool ppu_use_nj_bit{ this, "PPU Accurate Non-Java Mode", false }; // Accuracy. If set, accurately emulate NJ flag. Implies NJ fixup.
 		cfg::_bool ppu_set_vnan{ this, "PPU Accurate Vector NaN Values", false }; // Accuracy. Implies ppu_fix_vnan.
 		cfg::_bool ppu_set_fpcc{ this, "PPU Set FPCC Bits", false }; // Accuracy.
+		cfg::_bool ppu_set_vest{ this, "PPU Accurate Vector Estimates", false }; // Accuracy. Hardware exact vrefp and vrsqrtefp.
 
 		cfg::_bool debug_console_mode{ this, "Debug Console Mode", false }; // Debug console emulation, not recommended
 		cfg::_bool hook_functions{ this, "Hook static functions" };
@@ -83,6 +86,7 @@ struct cfg_root : cfg::node
 		cfg::uint<0, 3000> spu_wakeup_delay{ this, "SPU Wake-Up Delay", 0, true };
 		cfg::uint<0, (1 << 6) - 1> spu_wakeup_delay_mask{ this, "SPU Wake-Up Delay Thread Mask", (1 << 6) - 1, true };
 		cfg::uint<0, 400> max_cpu_preempt_count_per_frame{ this, "Max CPU Preempt Count", 0, true };
+		cfg::uint<0, 200> ppu_event_wakeup_delay{ this, "PPU Event Wake-Up Delay", 0, true };
 		cfg::_bool allow_rsx_cpu_preempt{ this, "Allow RSX CPU Preemptions", true, true };
 #if defined (__linux__) || defined (__APPLE__)
 		cfg::_enum<sleep_timers_accuracy_level> sleep_timers_accuracy{ this, "Sleep Timers Accuracy", sleep_timers_accuracy_level::_as_host, true };
