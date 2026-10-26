@@ -766,6 +766,9 @@ void gui_application::create_callbacks()
 
 			const bool no_gui = !m_main_window;
 
+			// Don't let CoreMIDI init race with app termination (e.g. Cocoa calling exit() on macOS)
+			midi_creator::wait_for_init();
+
 			if (m_main_window)
 			{
 				// Close main window in order to save its window state
@@ -1309,6 +1312,7 @@ void gui_application::OnChangeStyleSheetRequest()
 		locs.push_back(m_gui_settings->GetSettingsDir());
 
 #if !defined(_WIN32)
+		locs.push_back(QString::fromStdString(fs::get_resources_dir()) + "/GuiConfigs/");
 #ifdef __APPLE__
 		locs.push_back(QCoreApplication::applicationDirPath() + "/../Resources/GuiConfigs/");
 #else
